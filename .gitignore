@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Production builds
+dist/
+build/
+
+# Environment files & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Testing & Coverage
+coverage/
+.pytest_cache/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log

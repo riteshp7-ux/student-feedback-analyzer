@@ -1,0 +1,133 @@
+[
+  {
+    "id": "c022",
+    "text": "The hands-on examples solved on board made database query optimization click.",
+    "sentiment": "positive",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c039",
+    "text": "Classroom atmosphere is quiet and standard lecture delivery takes place.",
+    "sentiment": "neutral",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c092",
+    "text": "No live demonstration of coding, only PDF reading.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c053",
+    "text": "Pacing is too fast and doubts are regularly skipped during class.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace",
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c036",
+    "text": "Great enthusiasm and energy brought to every lecture.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c020",
+    "text": "Great live coding demonstrations during every lecture session.",
+    "sentiment": "positive",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c050",
+    "text": "The curriculum follows the university standard syllabus guidelines.",
+    "sentiment": "neutral",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c042",
+    "text": "Assignment deadlines are reasonable and feedback on submissions is prompt.",
+    "sentiment": "positive",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c068",
+    "text": "Theoretical concepts are confusing and pacing is extremely fast.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity",
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c014",
+    "text": "The speed of syllabus completion is extremely slow in the beginning and rushed at the end.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c090",
+    "text": "Pacing is normal and covers all prescribed units properly.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_pace",
+      "course_content"
+    ]
+  },
+  {
+    "id": "c038",
+    "text": "Professor asks thought-provoking questions to spark discussion.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c037",
+    "text": "Zero student interaction, it is purely a one-way monologue for 60 minutes.",
+    "sentiment": "negative",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c007",
+    "text": "Concept clarity is lacking, sir just reads the bullet points from slides.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c097",
+    "text": "Fast teaching speed makes it difficult for non-CS background students.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c002",
+    "text": "Sir explains difficult mathematical proofs in a very simple and intuitive manner.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity"
+    ]
+  }
+]

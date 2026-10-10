@@ -1,0 +1,383 @@
+{
+  "split": "test",
+  "sample_count": 16,
+  "sentiment_metrics": {
+    "accuracy": 0.8125,
+    "macro_precision": 0.8024,
+    "macro_recall": 0.8413,
+    "macro_f1": 0.8139,
+    "per_class": {
+      "negative": {
+        "precision": 0.8571,
+        "recall": 0.8571,
+        "f1_score": 0.8571,
+        "support": 7
+      },
+      "neutral": {
+        "precision": 0.75,
+        "recall": 1.0,
+        "f1_score": 0.8571,
+        "support": 3
+      },
+      "positive": {
+        "precision": 0.8,
+        "recall": 0.6667,
+        "f1_score": 0.7273,
+        "support": 6
+      }
+    },
+    "confusion_matrix": {
+      "classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "matrix": [
+        [
+          6,
+          0,
+          1
+        ],
+        [
+          0,
+          3,
+          0
+        ],
+        [
+          1,
+          1,
+          4
+        ]
+      ]
+    }
+  },
+  "topic_metrics": {
+    "subset_accuracy": 0.375,
+    "hamming_loss": 0.1071,
+    "macro_precision": 0.6429,
+    "macro_recall": 0.75,
+    "macro_f1": 0.665,
+    "per_topic": {
+      "teaching_clarity": {
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1_score": 0.75,
+        "support": 3
+      },
+      "teaching_pace": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 5
+      },
+      "practical_examples": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 3
+      },
+      "doubt_handling": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "support": 1
+      },
+      "engagement": {
+        "precision": 0.5,
+        "recall": 0.25,
+        "f1_score": 0.3333,
+        "support": 4
+      },
+      "assignments": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 1
+      },
+      "course_content": {
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.5714,
+        "support": 2
+      }
+    }
+  },
+  "error_analysis": {
+    "sentiment_error_count": 3,
+    "sentiment_errors": [
+      {
+        "id": "c038",
+        "text": "Professor asks thought-provoking questions to spark discussion.",
+        "true_sentiment": "positive",
+        "predicted_sentiment": "negative",
+        "probabilities": {
+          "negative": 0.7715,
+          "neutral": 0.0199,
+          "positive": 0.2085
+        }
+      },
+      {
+        "id": "c007",
+        "text": "Concept clarity is lacking, sir just reads the bullet points from slides.",
+        "true_sentiment": "negative",
+        "predicted_sentiment": "positive",
+        "probabilities": {
+          "negative": 0.3015,
+          "neutral": 0.1634,
+          "positive": 0.5351
+        }
+      },
+      {
+        "id": "c002",
+        "text": "Sir explains difficult mathematical proofs in a very simple and intuitive manner.",
+        "true_sentiment": "positive",
+        "predicted_sentiment": "neutral",
+        "probabilities": {
+          "negative": 0.0865,
+          "neutral": 0.8719,
+          "positive": 0.0415
+        }
+      }
+    ],
+    "topic_error_count": 10,
+    "topic_errors": [
+      {
+        "id": "c039",
+        "text": "Classroom atmosphere is quiet and standard lecture delivery takes place.",
+        "true_topics": [
+          "engagement"
+        ],
+        "predicted_topics": [],
+        "false_positives": [],
+        "false_negatives": [
+          "engagement"
+        ],
+        "scores": {
+          "assignments": 0.0063,
+          "course_content": 0.0244,
+          "doubt_handling": 0.0031,
+          "engagement": 0.0638,
+          "practical_examples": 0.0611,
+          "teaching_clarity": 0.0702,
+          "teaching_pace": 0.1858
+        }
+      },
+      {
+        "id": "c053",
+        "text": "Pacing is too fast and doubts are regularly skipped during class.",
+        "true_topics": [
+          "doubt_handling",
+          "teaching_pace"
+        ],
+        "predicted_topics": [
+          "teaching_pace"
+        ],
+        "false_positives": [],
+        "false_negatives": [
+          "doubt_handling"
+        ],
+        "scores": {
+          "assignments": 0.001,
+          "course_content": 0.0,
+          "doubt_handling": 0.0838,
+          "engagement": 0.0002,
+          "practical_examples": 0.0,
+          "teaching_clarity": 0.0212,
+          "teaching_pace": 1.0
+        }
+      },
+      {
+        "id": "c036",
+        "text": "Great enthusiasm and energy brought to every lecture.",
+        "true_topics": [
+          "engagement"
+        ],
+        "predicted_topics": [
+          "course_content",
+          "engagement",
+          "teaching_clarity"
+        ],
+        "false_positives": [
+          "course_content",
+          "teaching_clarity"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0009,
+          "course_content": 0.4081,
+          "doubt_handling": 0.0792,
+          "engagement": 0.9961,
+          "practical_examples": 0.0824,
+          "teaching_clarity": 0.8374,
+          "teaching_pace": 0.0006
+        }
+      },
+      {
+        "id": "c020",
+        "text": "Great live coding demonstrations during every lecture session.",
+        "true_topics": [
+          "practical_examples"
+        ],
+        "predicted_topics": [
+          "doubt_handling",
+          "practical_examples"
+        ],
+        "false_positives": [
+          "doubt_handling"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0021,
+          "course_content": 0.013,
+          "doubt_handling": 0.4591,
+          "engagement": 0.3497,
+          "practical_examples": 0.9941,
+          "teaching_clarity": 0.0242,
+          "teaching_pace": 0.0016
+        }
+      },
+      {
+        "id": "c050",
+        "text": "The curriculum follows the university standard syllabus guidelines.",
+        "true_topics": [
+          "course_content"
+        ],
+        "predicted_topics": [
+          "course_content",
+          "teaching_clarity"
+        ],
+        "false_positives": [
+          "teaching_clarity"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0025,
+          "course_content": 0.978,
+          "doubt_handling": 0.0,
+          "engagement": 0.0,
+          "practical_examples": 0.0042,
+          "teaching_clarity": 0.4015,
+          "teaching_pace": 0.2204
+        }
+      },
+      {
+        "id": "c014",
+        "text": "The speed of syllabus completion is extremely slow in the beginning and rushed at the end.",
+        "true_topics": [
+          "teaching_pace"
+        ],
+        "predicted_topics": [
+          "course_content",
+          "teaching_pace"
+        ],
+        "false_positives": [
+          "course_content"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0015,
+          "course_content": 0.6033,
+          "doubt_handling": 0.0,
+          "engagement": 0.01,
+          "practical_examples": 0.0668,
+          "teaching_clarity": 0.0205,
+          "teaching_pace": 0.9976
+        }
+      },
+      {
+        "id": "c038",
+        "text": "Professor asks thought-provoking questions to spark discussion.",
+        "true_topics": [
+          "engagement"
+        ],
+        "predicted_topics": [
+          "doubt_handling"
+        ],
+        "false_positives": [
+          "doubt_handling"
+        ],
+        "false_negatives": [
+          "engagement"
+        ],
+        "scores": {
+          "assignments": 0.0616,
+          "course_content": 0.0653,
+          "doubt_handling": 0.8803,
+          "engagement": 0.0641,
+          "practical_examples": 0.0155,
+          "teaching_clarity": 0.0166,
+          "teaching_pace": 0.0607
+        }
+      },
+      {
+        "id": "c037",
+        "text": "Zero student interaction, it is purely a one-way monologue for 60 minutes.",
+        "true_topics": [
+          "engagement"
+        ],
+        "predicted_topics": [],
+        "false_positives": [],
+        "false_negatives": [
+          "engagement"
+        ],
+        "scores": {
+          "assignments": 0.0211,
+          "course_content": 0.0898,
+          "doubt_handling": 0.059,
+          "engagement": 0.0071,
+          "practical_examples": 0.0013,
+          "teaching_clarity": 0.0016,
+          "teaching_pace": 0.3468
+        }
+      },
+      {
+        "id": "c007",
+        "text": "Concept clarity is lacking, sir just reads the bullet points from slides.",
+        "true_topics": [
+          "teaching_clarity"
+        ],
+        "predicted_topics": [
+          "engagement",
+          "teaching_clarity"
+        ],
+        "false_positives": [
+          "engagement"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0006,
+          "course_content": 0.2311,
+          "doubt_handling": 0.018,
+          "engagement": 0.4048,
+          "practical_examples": 0.3948,
+          "teaching_clarity": 0.9996,
+          "teaching_pace": 0.0137
+        }
+      },
+      {
+        "id": "c002",
+        "text": "Sir explains difficult mathematical proofs in a very simple and intuitive manner.",
+        "true_topics": [
+          "teaching_clarity"
+        ],
+        "predicted_topics": [
+          "course_content",
+          "teaching_clarity"
+        ],
+        "false_positives": [
+          "course_content"
+        ],
+        "false_negatives": [],
+        "scores": {
+          "assignments": 0.0048,
+          "course_content": 0.5207,
+          "doubt_handling": 0.0094,
+          "engagement": 0.0343,
+          "practical_examples": 0.0011,
+          "teaching_clarity": 0.8999,
+          "teaching_pace": 0.0038
+        }
+      }
+    ]
+  }
+}

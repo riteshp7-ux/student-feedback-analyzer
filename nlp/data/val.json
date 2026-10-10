@@ -1,0 +1,122 @@
+[
+  {
+    "id": "c031",
+    "text": "Doubt clearing sessions happen every Friday as per schedule.",
+    "sentiment": "neutral",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c034",
+    "text": "Lectures are lively, interactive, and keep the whole hall attentive.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c021",
+    "text": "Too theoretical with zero practical implementation or lab walkthroughs.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c079",
+    "text": "Average teaching quality, nothing special.",
+    "sentiment": "neutral",
+    "topics": []
+  },
+  {
+    "id": "c083",
+    "text": "Speed is too high, portion completion is done in a hurry.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c013",
+    "text": "Slide changing is too rapid, sir please slow down a bit.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c017",
+    "text": "Too much content is crammed into one single hour, pacing is frantic.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c057",
+    "text": "Very boring lectures with zero practical examples shown on board.",
+    "sentiment": "negative",
+    "topics": [
+      "engagement",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c044",
+    "text": "Four coding assignments assigned across the semester as outlined in syllabus.",
+    "sentiment": "neutral",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c046",
+    "text": "The syllabus is modern, well-structured, and covers industry-relevant tools.",
+    "sentiment": "positive",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c015",
+    "text": "Comfortable teaching pace throughout the semester.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c018",
+    "text": "The delivery speed is just right for both fast and slow learners.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c098",
+    "text": "Real-world database examples helped clear indexing concepts completely.",
+    "sentiment": "positive",
+    "topics": [
+      "practical_examples",
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c001",
+    "text": "The professor explains concepts very clearly and with great depth.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c041",
+    "text": "Homework assignments are way too long and grading is harsh and opaque.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments"
+    ]
+  }
+]

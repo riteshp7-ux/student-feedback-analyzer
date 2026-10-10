@@ -1,0 +1,564 @@
+[
+  {
+    "id": "c010",
+    "text": "Cannot understand the logic behind the derivations presented in class.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c076",
+    "text": "The course is okay, neither very good nor very bad.",
+    "sentiment": "neutral",
+    "topics": []
+  },
+  {
+    "id": "c054",
+    "text": "Interactive class discussions and great practical coding examples make this fun.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c078",
+    "text": "Very frustrating semester overall.",
+    "sentiment": "negative",
+    "topics": []
+  },
+  {
+    "id": "c074",
+    "text": "One of the best professors I have had in college so far.",
+    "sentiment": "positive",
+    "topics": []
+  },
+  {
+    "id": "c067",
+    "text": "Challenging course content delivered with enthusiasm and great clarity.",
+    "sentiment": "positive",
+    "topics": [
+      "course_content",
+      "engagement",
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c048",
+    "text": "Recommended textbook and reference materials are very helpful.",
+    "sentiment": "positive",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c023",
+    "text": "Only textbook theory is taught, no practical examples shown for real applications.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c055",
+    "text": "Clear teaching and excellent doubt handling during office hours.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity",
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c043",
+    "text": "Grading rubrics are not transparent and marks were deducted without reason.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c088",
+    "text": "Doubt clearing is super helpful, sir stays back after class.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c006",
+    "text": "Very crisp articulation and clear voice during lectures.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c008",
+    "text": "The explanation of dynamic programming was exceptionally well delivered.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c032",
+    "text": "Very encouraging attitude towards student questions and doubts.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c052",
+    "text": "Explanations are lucid and clear, but the pace is too rushed to follow derivations.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity",
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c087",
+    "text": "Good explanation of theory but practical lab conduction was poor.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c084",
+    "text": "Marks cutting in mid-sem was very strict and no explanation given.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c086",
+    "text": "Class is very boring, sir only reads PPT from start to end.",
+    "sentiment": "negative",
+    "topics": [
+      "engagement",
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c049",
+    "text": "The course content is extremely vast and difficult to master in one term.",
+    "sentiment": "negative",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c012",
+    "text": "Pacing of the course is well-calibrated and gives adequate time to absorb concepts.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c056",
+    "text": "Assignments are tough and the pace of lectures is overwhelmingly fast.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments",
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c035",
+    "text": "Very monotonous and boring delivery, students end up falling asleep.",
+    "sentiment": "negative",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c089",
+    "text": "PPT slides are directly downloaded from web, zero original effort.",
+    "sentiment": "negative",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c095",
+    "text": "Curriculum provides strong conceptual grounding for competitive programming.",
+    "sentiment": "positive",
+    "topics": [
+      "course_content",
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c047",
+    "text": "Curriculum is outdated and covers obsolete technologies no longer in use.",
+    "sentiment": "negative",
+    "topics": [
+      "course_content"
+    ]
+  },
+  {
+    "id": "c073",
+    "text": "Everything was satisfactory and met normal expectations.",
+    "sentiment": "neutral",
+    "topics": []
+  },
+  {
+    "id": "c077",
+    "text": "Outstanding professor, highly respect his knowledge and dedication.",
+    "sentiment": "positive",
+    "topics": []
+  },
+  {
+    "id": "c003",
+    "text": "Explanations on whiteboard are messy and handwriting is not clear at all.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c065",
+    "text": "No live examples and doubt clearing is very dismissive.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples",
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c094",
+    "text": "Surprise quizzes are unfair and syllabus was not completed yet.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments",
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c071",
+    "text": "Great course overall, really enjoyed attending every week.",
+    "sentiment": "positive",
+    "topics": []
+  },
+  {
+    "id": "c061",
+    "text": "Patience with student doubts and great interactive engagement throughout.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling",
+      "engagement"
+    ]
+  },
+  {
+    "id": "c060",
+    "text": "Concepts are clear but slide reading is fast and practical sessions are lacking.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity",
+      "teaching_pace",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c062",
+    "text": "Outdated course syllabus and the professor rushes through the slides.",
+    "sentiment": "negative",
+    "topics": [
+      "course_content",
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c030",
+    "text": "Questions asked in lecture are often ignored or postponed indefinitely.",
+    "sentiment": "negative",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c070",
+    "text": "Monotonous delivery, rushed pace, and no real-world relevance shown.",
+    "sentiment": "negative",
+    "topics": [
+      "engagement",
+      "teaching_pace",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c100",
+    "text": "Best teacher for algorithms, doubts and concepts both handled masterfully.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity",
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c027",
+    "text": "Doubts asked in class are addressed patiently and never brushed aside.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c026",
+    "text": "Please include more code walkthroughs instead of just PowerPoint diagrams.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c069",
+    "text": "Clear slides, good doubt clearing, and practical code snippets provided.",
+    "sentiment": "positive",
+    "topics": [
+      "teaching_clarity",
+      "doubt_handling",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c066",
+    "text": "The pacing was fine but the assignments were unfairly difficult.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_pace",
+      "assignments"
+    ]
+  },
+  {
+    "id": "c009",
+    "text": "Explanations are neither great nor terrible, just average coverage.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c080",
+    "text": "Loved this subject so much, thank you sir!",
+    "sentiment": "positive",
+    "topics": []
+  },
+  {
+    "id": "c029",
+    "text": "Sir is readily accessible during office hours to solve student doubts.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c093",
+    "text": "Interactive teaching style makes 8am class bearable and lively.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement"
+    ]
+  },
+  {
+    "id": "c075",
+    "text": "Terrible experience throughout the term.",
+    "sentiment": "negative",
+    "topics": []
+  },
+  {
+    "id": "c028",
+    "text": "The professor gets irritated when students ask basic questions and doubts.",
+    "sentiment": "negative",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c016",
+    "text": "Class pace is steady and conforms to the scheduled syllabus timeline.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c025",
+    "text": "Loved the practical problem-solving sessions at the end of each module.",
+    "sentiment": "positive",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c040",
+    "text": "Assignments are practical, challenging, and reinforce learning well.",
+    "sentiment": "positive",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c085",
+    "text": "Sir gives great tips and practical hacks for coding interviews.",
+    "sentiment": "positive",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c045",
+    "text": "Unrealistic workload from weekly assignments alongside project work.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c051",
+    "text": "The concepts are explained clearly, but we desperately need more practical examples.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c072",
+    "text": "Did not enjoy the class at all, would not recommend.",
+    "sentiment": "negative",
+    "topics": []
+  },
+  {
+    "id": "c024",
+    "text": "Examples provided in class are standard textbook ones, nothing groundbreaking.",
+    "sentiment": "neutral",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c096",
+    "text": "Explanations are decent, nothing much to complain or praise.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c019",
+    "text": "We need more real-world practical examples and industry case studies.",
+    "sentiment": "negative",
+    "topics": [
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c059",
+    "text": "Harsh assignment grading and unwilling to solve student doubts after class.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments",
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c004",
+    "text": "The conceptual explanations are confusing and jump between topics without structure.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c091",
+    "text": "Very cooperative faculty, always ready to clarify our confusion.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c082",
+    "text": "Madam is very polite and solves all doubts during lab hours.",
+    "sentiment": "positive",
+    "topics": [
+      "doubt_handling"
+    ]
+  },
+  {
+    "id": "c064",
+    "text": "Engaging lecturer who explains algorithms with crystal clear logic.",
+    "sentiment": "positive",
+    "topics": [
+      "engagement",
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c058",
+    "text": "Modern curriculum topics covered clearly with insightful examples.",
+    "sentiment": "positive",
+    "topics": [
+      "course_content",
+      "teaching_clarity",
+      "practical_examples"
+    ]
+  },
+  {
+    "id": "c081",
+    "text": "Sir explains nicely but syllabus is very vast to revise before exams.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity",
+      "course_content"
+    ]
+  },
+  {
+    "id": "c099",
+    "text": "Assignment questions are copy-pasted directly from online websites.",
+    "sentiment": "negative",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "id": "c005",
+    "text": "Slides are readable and concepts are presented in standard textbook order.",
+    "sentiment": "neutral",
+    "topics": [
+      "teaching_clarity"
+    ]
+  },
+  {
+    "id": "c063",
+    "text": "Good practical examples given, but assignments do not match what is taught.",
+    "sentiment": "neutral",
+    "topics": [
+      "practical_examples",
+      "assignments"
+    ]
+  },
+  {
+    "id": "c011",
+    "text": "The lectures move way too fast and it is impossible to take notes.",
+    "sentiment": "negative",
+    "topics": [
+      "teaching_pace"
+    ]
+  },
+  {
+    "id": "c033",
+    "text": "Rarely pauses between topics to check if students have any doubts.",
+    "sentiment": "negative",
+    "topics": [
+      "doubt_handling"
+    ]
+  }
+]
