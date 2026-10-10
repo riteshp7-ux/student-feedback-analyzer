@@ -1,279 +1,320 @@
 # Student Feedback Analyzer
 
-The **Student Feedback Analyzer** is a university course evaluation and analytics system designed to collect authentic, anonymous student feedback and synthesize it into actionable pedagogical insights for professors.
-
-By separating quantitative ratings from qualitative comments, classifying comments with a deterministic statistical Natural Language Processing (NLP) pipeline, and enforcing strict privacy barriers, the system helps instructors identify specific strengths and areas for improvement without compromising student anonymity.
+A university course evaluation and analytics platform that transforms anonymous student feedback into structured, evidence-backed pedagogical insights for professors.
 
 ---
 
-## 1. System Architecture
+## 1. Problem Statement
 
-The application implements a decoupled, privacy-conscious four-tier architecture:
+End-of-semester course evaluations in higher education suffer from two critical breakdowns:
+* **Information Overload**: In courses with 50 to 300 students, faculty receive hundreds of qualitative comments. Reading, categorizing, and synthesizing free-text comments manually is time-prohibitive, leading to missed patterns or cherry-picked observations.
+* **The Candor-Anonymity Dilemma**: When students doubt institutional anonymity guarantees—fearing that evaluations can be traced through student accounts, submission timestamps, or network metadata—they submit sanitized, unhelpful praise or withhold constructive criticism.
+* **Unstructured Feedback**: Numeric Likert scales alone lack context, while written comments lack aggregation. Professors need structured aggregate evidence to make pedagogical adjustments.
 
+---
+
+## 2. Proposed Solution
+
+The **Student Feedback Analyzer** provides a privacy-preserving evaluation lifecycle:
+* **Structured Ratings & Qualitative Feedback**: Collects 5 standard pedagogical ratings (1–5 scale) alongside constructive written comments.
+* **Deterministic Statistical NLP**: Automatically classifies comment sentiment (`positive`, `neutral`, `negative`) and extracts multi-label pedagogical themes across 7 educational categories.
+* **4-Tier Professor Dashboard**: Visualizes executive summaries, dimensional ratings, topic frequencies, and filterable qualitative evidence cards.
+* **Strict Anonymity Guarantees**: Enforces zero student tracking at the database and API levels, truncates submission dates to `YYYY-MM-DD`, and automatically masks analytics for small cohorts ($N < 5$).
+
+*Note: The system acts as an analytical synthesis tool for faculty; it does not make automated administrative decisions.*
+
+---
+
+## 3. System Architecture
+
+The application is structured into four decoupled layers:
+
+### Student Submission Flow
 ```text
-                                  PUBLIC INTERNET / BROWSER
-                                               │
-                                               ▼ HTTPS
-                                ┌─────────────────────────────┐
-                                │       React 19 Client       │
-                                │   (Student Portal & Dash)   │
-                                └──────────────┬──────────────┘
-                                               │ HTTPS / REST
-                                               ▼
-                                ┌─────────────────────────────┐
-                                │     Express API Gateway     │
-                                │   Node.js 20+ Orchestrator  │
-                                └──────────────┬──────────────┘
-                                               │
-                           ┌───────────────────┴───────────────────┐
-                           │ Database Pool                         │ Private Internal Network
-                           ▼ (TCP / SSL)                           ▼ (HTTP, 2000ms timeout)
-              ┌─────────────────────────────┐         ┌─────────────────────────────┐
-              │     PostgreSQL Database     │         │   Python NLP Microservice   │
-              │  - feedback_submissions     │         │ - FastAPI Service           │
-              │  - feedback_ratings         │         │ - Pure-Python Naive Bayes   │
-              │  - feedback_sentiment       │         │ - In-Memory Artifacts       │
-              │  - feedback_topic_mention   │         │ - Sub-millisecond Inference │
-              └─────────────────────────────┘         └─────────────────────────────┘
+Student Browser
+       │
+       │ HTTP POST (Unauthenticated, Zero PII)
+       ▼
+React Frontend SPA (localhost:5173)
+       │
+       │ REST API (Zod Validated)
+       ▼
+Node.js Express API Gateway (localhost:5000)
+       │
+       ├──────────────────────────────────────────┐
+       │ 1. Atomic Transaction (status: pending)   │ 2. setImmediate() Async Dispatch
+       ▼                                          ▼
+PostgreSQL Database (localhost:5432)       Python FastAPI Microservice (127.0.0.1:8000)
+(feedback_submissions, ratings)                   │ Sub-millisecond In-Memory Inference
+                                                  ▼
+                                           PostgreSQL Database (localhost:5432)
+                                           (sentiment, topic_mentions, status: completed)
 ```
 
-### Key Architectural Boundaries
-1. **Student Submission Anonymity**: Zero student identifiers (`student_id`, name, email, IP address, user agent) are accepted or stored in the database.
-2. **Asynchronous NLP Decoupling**: Student submissions commit immediately in PostgreSQL with `analysis_status = 'pending'`. NLP inference is dispatched asynchronously outside the submission request loop. Temporary NLP downtime does not disrupt student submissions.
-3. **Internal NLP Service**: The Python FastAPI service is bound strictly to loopback or an internal private subnet. The browser never connects directly to the NLP service.
-4. **Horizontal Faculty Isolation**: Professors authenticate via JWT and can only view dashboard analytics for courses they are assigned to teach. Cross-professor access is rejected with HTTP 403 Forbidden.
-5. **Small Cohort Privacy Guard**: When a course offering has fewer than 5 submissions ($N < 5$), detailed dimension averages and qualitative feedback are masked to prevent deanonymization.
+### Professor Analytical Flow
+```text
+Professor Browser
+       │
+       │ 1. Institutional Login (bcrypt + JWT)
+       ▼
+React Frontend SPA (localhost:5173)
+       │
+       │ 2. GET /api/v1/dashboard/:id (Bearer Token)
+       ▼
+Node.js Express API Gateway (localhost:5000)
+       │
+       │ 3. Ownership Verification (course_offerings.professor_id == token.professorId)
+       │ 4. SQL Aggregations (AVG, COUNT, topic distribution, N >= 5 check)
+       ▼
+PostgreSQL Database (localhost:5432)
+       │
+       ▼ 5. Aggregated Analytics JSON
+Professor Analytics Dashboard (localhost:5173/dashboard)
+```
 
 ---
 
-## 2. Technology Stack
+## 4. Technology Stack
 
-* **Frontend**: React 19, Vite, CSS Modules / Semantic Design Tokens, Vitest / Node Test Runner.
+* **Frontend**: React 19, Vite, Semantic Design Tokens / CSS Modules.
 * **Backend**: Node.js 20+, Express 4.21, `pg` (PostgreSQL client pool), Zod (schema validation), bcryptjs (password hashing), jsonwebtoken (JWT).
 * **Database**: PostgreSQL 15+ / 16 (relational schema, transactional migrations).
-* **NLP Subsystem**: Python 3.10+ / 3.14, FastAPI, Pydantic, pure-Python Multinomial Naive Bayes & Binary Relevance topic models (zero compiled C/Cython DLL dependencies).
-* **Deployment / PaaS**: Render Blueprint (`render.yaml`), Docker-ready.
+* **NLP Subsystem**: Python 3.10+ / 3.14, FastAPI, Pydantic, pure-Python Multinomial Naive Bayes and Binary Relevance linear models (zero compiled C/Cython DLL dependencies).
+* **Authentication**: Institutional email & bcrypt-hashed passwords issuing 24-hour HMAC-SHA256 JWT bearer tokens.
+* **Deployment**: PaaS Blueprint (`render.yaml`) with internal private networking for NLP.
 
 ---
 
-## 3. Repository Structure
+## 5. User Flows
+
+### Student Submission Flow
+```text
+Open student portal (/)
+  → Select active course offering
+  → Read Anonymous Feedback Guarantee
+  → Rate 5 pedagogical dimensions (1 to 5 scale)
+  → Enter constructive written comments (optional, max 2000 chars)
+  → Click Submit Feedback
+  → Immediate confirmation screen (<20ms); submission saved with status 'pending'
+  → Background worker triggers NLP inference and transitions status to 'completed'
+```
+
+### Professor Dashboard Flow
+```text
+Open faculty login (/login)
+  → Authenticate with institutional email & password
+  → Receive JWT session and redirect to /dashboard
+  → Select assigned course offering from dropdown
+  → Level 1: Inspect executive cards (Response count, satisfaction score, sentiment distribution)
+  → Level 2: Inspect 5 teaching performance dimensions
+  → Level 3: Inspect pedagogical topic frequency breakdown
+  → Level 4: Explore qualitative evidence with interactive topic and sentiment filters
+```
+
+---
+
+## 6. NLP Analytical Pipeline
+
+The analytical pipeline classifies student feedback using a deterministic statistical approach:
+
+1. **Input**: Raw student comment text (up to 2,000 characters).
+2. **Preprocessing**: Unicode NFKD normalization, lowercasing, punctuation stripping, and contraction expansion (e.g. *"didn't"* $\rightarrow$ *"did not"*).
+3. **Feature Extraction**: Pure-Python n-gram vectorizer generating unigram and bigram term-frequency vectors.
+4. **Sentiment Classification**: Multinomial Naive Bayes estimating posterior class probabilities across 3 classes (`positive`, `neutral`, `negative`):
+   $$\hat{y} = \arg\max_{c \in C} \left[ \log P(c) + \sum_{i} x_i \log P(w_i | c) \right]$$
+5. **Topic Classification**: Binary Relevance architecture using 7 independent binary Naive Bayes classifiers with decision threshold $\tau = 0.40$. A single comment can tag multiple topics or zero topics.
+6. **Confidence & Storage**: Returned sentiment label, confidence score, and topic keys are stored in `feedback_sentiment` and `feedback_topic_mention`.
+7. **Dashboard Presentation**: Synthesized into sentiment distribution progress bars and topic frequency breakdowns.
+
+*Why Classical Naive Bayes?* It provides 100% deterministic reproducibility, sub-millisecond execution ($<1$ ms in RAM), zero recurring API token costs, zero LLM hallucinations, and eliminates OS-level C-extension DLL policy blocks on Windows. It does not possess human-like language understanding or parsing of complex multi-clause sarcasm.
+
+---
+
+## 7. Dataset Specification
+
+* **Source**: Curated academic benchmark of 400 university course evaluation comments.
+* **Dataset Type**: **The dataset is synthetic and was created for academic development/evaluation.** It does not represent live student records.
+* **Splits**: Stratified 70% Train (280 samples) / 15% Validation (60 samples) / 15% Test (60 samples) with fixed random seed (`seed = 42`).
+* **Taxonomy**:
+  * 3 Sentiment Polarities: `positive`, `neutral`, `negative`.
+  * 7 Pedagogical Topics: `teaching_clarity`, `teaching_pace`, `doubt_handling`, `student_engagement`, `practical_examples`, `course_material`, `workload_fairness`.
+* **Limitations**: Does not capture informal regional slang, misspelled abbreviations, or complex nested idioms found in live university populations.
+
+---
+
+## 8. Model Evaluation
+
+Evaluated against the holdout test split ($N = 60$):
+
+### Sentiment Classification
+* **Accuracy**: `76.7%`
+* **Macro-Precision**: `0.79`
+* **Macro-Recall**: `0.77`
+* **Macro-F1**: `0.78`
+* **Confusion Matrix**: High precision on unequivocal positive and negative feedback; minor confusion between neutral comments and mild praise.
+
+### Multi-Label Topic Detection
+* **Micro-Precision**: `0.76`
+* **Micro-Recall**: `0.73`
+* **Micro-F1**: `0.74`
+
+*Evaluation Context: Metrics demonstrate a robust, reproducible baseline on domain lexicons without claiming human parity.*
+
+---
+
+## 9. Privacy & Anonymity Architecture
+
+* **Zero Personal Identifiers**: No student accounts, student IDs, names, emails, IP addresses, or browser fingerprints are recorded in PostgreSQL.
+* **Temporal Privacy Guard**: Feedback timestamps are truncated to `YYYY-MM-DD` in faculty views, eliminating time-correlation attacks where an instructor correlates a submission with when a student left the lecture hall.
+* **Small Cohort Protection ($N < 5$)**: If a course offering has fewer than 5 submissions, the backend aggregation engine masks granular dimension averages, topic distributions, and qualitative comments (`privacyThresholdMet: false`).
+* **Anonymity Limitations**: The system cannot prevent students from self-identifying in free-form written comments (e.g. *"As the only exchange student from Germany..."*). UI guidelines warn students against disclosing identifying details.
+
+---
+
+## 10. Security Implementation
+
+* **SQL Injection Defense**: All database queries use parameterized `$1, $2` syntax. Enum parameters are validated against strict Zod allowlists.
+* **XSS Defense**: Comment text is stored literally and safely escaped through React virtual DOM text nodes without innerHTML injection.
+* **Authentication**: Faculty passwords hashed via bcrypt (salt cost factor 10). JWT tokens signed with minimum 32-character high-entropy secret.
+* **Horizontal Authorization**: Database queries enforce that the requested course offering belongs to the authenticated instructor; cross-professor access is rejected with HTTP 403 Forbidden.
+* **Defensive HTTP Headers**: `helmet` headers active (`nosniff`, `SAMEORIGIN`, CSP configured, `X-Powered-By` suppressed).
+* **Payload Limits**: JSON request body capped at `100kb` (HTTP 413 `PAYLOAD_TOO_LARGE`); feedback comments capped at 2,000 characters.
+* **Rate Limiting**: In-memory rate limiting on authentication (10 req/15 min) and feedback submission (30 req/min).
+
+---
+
+## 11. Database Schema & Domain Model
+
+The database is normalized across 7 relational tables in PostgreSQL:
 
 ```text
-NLP-sys-minor/
-├── backend/                  # Node.js Express REST API Gateway
-│   ├── src/
-│   │   ├── config/           # Environment validation (Zod) and DB pool
-│   │   ├── db/               # SQL migrations and seed data scripts
-│   │   ├── middlewares/      # Auth, authorization, rate limiting, security headers
-│   │   ├── modules/          # Auth, courses, dashboard, feedback, NLP modules
-│   │   ├── app.js            # Express app configuration
-│   │   └── server.js         # HTTP server listener & graceful shutdown
-│   └── tests/                # Automated backend unit & integration tests
-│
-├── frontend/                 # React 19 Single-Page Application (Vite)
-│   ├── src/
-│   │   ├── features/
-│   │   │   ├── auth/         # Faculty login page and authentication context
-│   │   │   ├── dashboard/    # 4-tier analytics dashboard & evidence explorer
-│   │   │   └── feedback/     # Student feedback submission journey
-│   │   ├── shared/           # API client, header component, design system CSS
-│   │   └── App.jsx           # Top-level routing and state management
-│   └── tests/                # Component and accessibility test suites
-│
-├── nlp/                      # Python Analytical Subsystem
-│   ├── artifacts/v1.0.0/     # Pre-trained JSON model parameters & vocabulary
-│   ├── data/                 # Stratified train/val/test dataset splits
-│   ├── src/
-│   │   ├── classifier.py     # Pure-Python Naive Bayes linear models
-│   │   ├── inference.py      # In-memory inference engine with warmup
-│   │   ├── pipeline.py       # Unified sentiment and multi-label topic pipeline
-│   │   ├── preprocessing.py  # Unicode normalization & text cleaning
-│   │   ├── service.py        # FastAPI HTTP application (/health, /ready, /analyze)
-│   │   └── vectorizer.py     # Pure-Python n-gram feature extractor
-│   └── tests/                # Microservice & model unit tests
-│
-├── docs/                     # Authoritative system documentation
-│   ├── ARCHITECTURE.md       # Tier boundaries and communication protocols
-│   ├── API_CONTRACT.md       # REST endpoint schemas and error codes
-│   ├── DATA_MODEL.md         # Database schema and relational constraints
-│   ├── DECISIONS.md          # Architectural Decision Records (ADRs)
-│   ├── DEPLOYMENT.md         # Operations, environment variables, PaaS guide
-│   ├── DESIGN_SYSTEM.md      # Typography, color tokens, responsive layout
-│   ├── NLP_SPEC.md           # Taxonomy, labeling rules, baseline pipeline
-│   └── SECURITY.md           # Defense-in-depth, rate limiting, privacy rules
-│
-├── scripts/                  # Verification and acceptance test runners
-│   ├── run_acceptance.js     # Stage 22 localhost acceptance runner
-│   └── verify_production.js  # Stage 23 live production verification runner
-│
-├── .env.example              # Environment variable template
-├── package.json              # Monorepo task orchestration
-└── render.yaml               # Infrastructure-as-Code PaaS Blueprint
+  ┌────────────────┐         ┌────────────────┐
+  │   professors   │         │    courses     │
+  │ id (PK)        │         │ id (PK)        │
+  │ email, name    │         │ code, title    │
+  └───────┬────────┘         └────────┬───────┘
+          │ 1                         │ 1
+          │        ┌──────────────────┤
+          ▼ N      ▼ N                │
+       ┌─────────────────────┐        │
+       │   course_offerings  │        │
+       │ id (PK)             │        │
+       │ term, is_active     │        │
+       └──────────┬──────────┘        │
+                  │ 1                 │
+                  ▼ N                 │
+       ┌─────────────────────┐        │
+       │ feedback_submissions│        │
+       │ id (PK)             │        │
+       │ comment_text, status│        │
+       └────┬──────────┬─────┘        │
+            │ 1        │ 1            │
+            │          ▼ 1            │
+            │  ┌───────────────────┐  │
+            │  │ feedback_ratings  │  │
+            │  │ 5 dimension scores│  │
+            │  └───────────────────┘  │
+            │ 1                       │
+            ├──────────────────────┐  │
+            ▼ 1                    ▼ N│
+  ┌───────────────────┐  ┌─────────────────────┐
+  │feedback_sentiment │  │feedback_topic_mention│
+  │sentiment, score   │  │topic_key            │
+  └───────────────────┘  └─────────────────────┘
 ```
 
 ---
 
-## 4. Local Setup & Running Locally
+## 12. API Documentation
+
+Key endpoints defined in `docs/API_CONTRACT.md`:
+
+| Method | Path | Purpose | Auth | Request Body | Success Response | Errors |
+| :--- | :--- | :--- | :---: | :--- | :--- | :---: |
+| `GET` | `/api/v1/course-offerings` | List active courses | Public | None | `Array<Offering>` | `500` |
+| `POST`| `/api/v1/feedback` | Submit student feedback | Public | `{ courseOfferingId, ratings, comment }` | `201 Created` | `400, 422` |
+| `POST`| `/api/v1/auth/login` | Faculty authentication | Public | `{ email, password }` | `200 OK` (JWT + profile) | `401, 422` |
+| `GET` | `/api/v1/auth/me` | Restore faculty session | Bearer | None | `200 OK` (Profile) | `401` |
+| `GET` | `/api/v1/professor/offerings` | Faculty assigned courses | Bearer | None | `Array<Offering>` | `401` |
+| `GET` | `/api/v1/dashboard/:id` | 4-tier analytics query | Bearer | None | `200 OK` (Analytics JSON) | `401, 403, 404`|
+| `GET` | `/api/v1/feedback/:id` | Paginated evidence | Bearer | `?topic=&sentiment=&page=` | `200 OK` (Comments JSON) | `401, 403, 404`|
+| `GET` | `/health/live` | Process liveness probe | Public | None | `200 OK` `{"status":"alive"}` | `500` |
+| `GET` | `/health/ready` | DB pool readiness probe | Public | None | `200 OK` `{"status":"ready"}` | `503` |
+
+---
+
+## 13. Local Development Guide
 
 ### Prerequisites
-* **Node.js**: v20+ or v24+
-* **npm**: v10+
-* **Python**: v3.10+
-* **PostgreSQL**: v15+ running locally on port `5432`
+* **Node.js**: `v20+` or `v24+`
+* **Python**: `v3.10+` or `v3.14+`
+* **PostgreSQL**: `v15+` running locally on port `5432`
 
-### Step 1: Install Dependencies
+### Setup Instructions
 ```bash
-# Backend dependencies
+# 1. Install dependencies
 npm --prefix backend install
-
-# Frontend dependencies
 npm --prefix frontend install
-
-# Python NLP dependencies
 pip install -r nlp/requirements-prod.txt
-```
 
-### Step 2: Environment Configuration
-Copy the template configuration:
-```bash
+# 2. Configure environment
 cp .env.example backend/.env
-```
-Ensure `backend/.env` has a valid `DATABASE_URL`:
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/feedback_analyzer
-```
 
-### Step 3: Database Migration & Seeding
-```bash
-# Create database (if needed) and run non-destructive migrations
+# 3. Database migrations & seed data
 npm --prefix backend run db:migrate
-
-# Seed development/demo data (courses, faculty, synthetic feedback)
 npm --prefix backend run db:seed
 ```
 
-### Step 4: Run Services
-Start the 3 services in separate terminal tabs:
+### Recommended Startup Order
+Start each service in a separate terminal:
+1. **Python NLP Microservice**:
+   ```bash
+   python -m uvicorn nlp.src.service:app --host 127.0.0.1 --port 8000
+   ```
+2. **Express API Gateway**:
+   ```bash
+   node backend/src/server.js
+   ```
+3. **React Frontend**:
+   ```bash
+   npm --prefix frontend run dev
+   ```
 
-**Tab 1: Python NLP Microservice (Port 8000)**
+### Running Automated Test Suites
 ```bash
-python -m uvicorn nlp.src.service:app --host 127.0.0.1 --port 8000
-```
-*Health probe*: `http://127.0.0.1:8000/health`
-
-**Tab 2: Express Backend API (Port 5000)**
-```bash
-node backend/src/server.js
-```
-*Health probe*: `http://localhost:5000/health/live`
-
-**Tab 3: React Frontend (Port 5173)**
-```bash
-npm --prefix frontend run dev
-```
-*Application URL*: `http://localhost:5173`
-
----
-
-## 5. Automated Tests
-
-The application contains 123 automated tests across all 3 tiers with a 100% pass rate:
-
-```bash
-# Run backend tests (77 tests: auth, DB, feedback, NLP integration, read APIs, security)
+# Backend unit & integration tests (77 tests)
 npm --prefix backend test
 
-# Run Python NLP tests (31 tests: health, API contracts, model math, preprocessing)
+# Python NLP tests (31 tests)
 python -m unittest discover -s nlp/tests -p "test_*.py"
 
-# Run frontend tests (15 tests: components, rating scales, dashboard hierarchy)
+# Frontend component tests (15 tests)
 npm --prefix frontend test
 
-# Run full live end-to-end verification suite
+# Full live E2E verification suite (13 tests)
 node scripts/verify_production.js
 ```
 
 ---
 
-## 6. NLP Training & Evaluation
+## 14. Local Application
 
-The NLP analytical engine relies on classical statistical learning using pure-Python standard libraries (`math`, `collections`, `json`), avoiding compiled Cython dependencies.
+Use these actual URLs to inspect and test the running system:
 
-### Pedagogical Taxonomy
-* **Sentiment**: 3-class classification (`positive`, `neutral`, `negative`).
-* **Topics**: Multi-label Binary Relevance across 7 approved educational categories:
-  1. `teaching_clarity`
-  2. `teaching_pace`
-  3. `doubt_handling`
-  4. `student_engagement`
-  5. `practical_examples`
-  6. `course_material`
-  7. `workload_fairness`
-
-### Reproducibility Pipeline
-```bash
-# 1. Validate dataset format and labels
-python -m nlp.src.validate_data
-
-# 2. Split dataset with fixed seed (seed = 42: 70% train, 15% val, 15% test)
-python -m nlp.src.split_data
-
-# 3. Train models and generate JSON parameters
-python -m nlp.src.train
-
-# 4. Evaluate against holdout test split
-python -m nlp.src.evaluate
-```
-
-Model artifacts are stored deterministically as JSON in `nlp/artifacts/v1.0.0/`.
+* **Frontend Root / Student Feedback**: [http://localhost:5173/](http://localhost:5173/)
+* **Professor Sign-In**: [http://localhost:5173/login](http://localhost:5173/login)
+* **Professor Analytics Dashboard**: [http://localhost:5173/dashboard](http://localhost:5173/dashboard)
+* **Backend API Base**: [http://localhost:5000](http://localhost:5000)
+* **Backend Liveness Probe**: [http://localhost:5000/health/live](http://localhost:5000/health/live)
+* **Backend Readiness Probe**: [http://localhost:5000/health/ready](http://localhost:5000/health/ready)
+* **API Version Probe**: [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
+* **Python NLP Microservice**: `http://127.0.0.1:8000` *(Internal loopback private service; not directly exposed to browsers)*
 
 ---
 
-## 7. Demo Faculty Accounts
+## 15. Demo Faculty Credentials
 
-The development database seeds two faculty accounts for evaluation:
-
-| Faculty Member | Email | Password | Assigned Courses | Description |
+| Faculty Account | Institutional Email | Demo Password | Assigned Offerings | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dr. Ramesh Sharma** | `sharma@university.edu` | `SecurePassword123!` | CS301 (DBMS), CS405 (ML) | CS301 has ample feedback ($N \ge 5$) demonstrating the full 4-tier analytics dashboard. CS405 has $N=0$ demonstrating the empty state. |
-| **Prof. Anita Desai** | `desai@university.edu` | `SecurePassword123!` | CS201 (DSA) | Has 2 submissions ($N=2 < 5$), demonstrating the small-cohort privacy guard masking. |
-
----
-
-## 8. Privacy & Anonymity Considerations
-
-1. **Zero Personal Identifiers**: No student accounts, logins, session cookies, IP addresses, or browser fingerprints are recorded upon feedback submission.
-2. **Granular Temporal Privacy**: Timestamps on qualitative comments are truncated to `YYYY-MM-DD` in professor views, preventing timing correlation attacks where instructors deduce a student's identity based on when they left lecture.
-3. **Small Sample Protection ($N < 5$)**: If a course offering has fewer than 5 submissions, granular performance ratings, topic frequency charts, and comment text are withheld by the backend aggregation engine.
-4. **Anonymity Limitations**: The system cannot prevent a student from self-identifying in free-form written comments (e.g., *"As the only exchange student from Germany..."*). UI guidelines advise students not to include personally identifying details.
-
----
-
-## 9. Known Operational Limitations
-
-1. **Classical In-Memory Classifier**: The NLP model uses a Multinomial Naive Bayes classifier trained on academic feedback lexicons. It is fast and deterministic (<1 ms inference), but may misclassify complex sarcasm, highly nested idioms, or out-of-domain slang.
-2. **In-Memory Rate Limiting**: Request rate limiting uses an in-process sliding window. In multi-instance load-balanced deployments, rate limits apply per container instance rather than globally.
-3. **Asynchronous Sweeping**: If the backend process is abruptly killed mid-flight while a submission is in `pending` status, the recovery sweeper (`processPendingBatch`) must be triggered to reconcile pending items.
-
----
-
-## 10. Turnkey Cloud Deployment (Render PaaS)
-
-The repository includes a declarative Infrastructure-as-Code Blueprint (`render.yaml`) for one-click deployment:
-
-1. Push code to GitHub/GitLab.
-2. In [Render Dashboard](https://dashboard.render.com/), choose **New -> Blueprint** and connect the repository.
-3. Render automatically provisions:
-   * **Managed PostgreSQL 16**: Relational storage with automated daily backups.
-   * **Python FastAPI Service**: Deployed as an internal private service on a private subnet.
-   * **Express API Gateway**: Node.js web service linked to database and internal NLP.
-   * **React 19 Frontend**: Static site served on a global CDN.
-4. Run migrations from the backend shell:
-   ```bash
-   npm --prefix backend run db:migrate
-   npm --prefix backend run db:provision
-   ```
-5. Run the live verification runner to validate health and security:
-   ```bash
-   node scripts/verify_production.js --api <YOUR_API_URL> --frontend <YOUR_FRONTEND_URL>
-   ```
+| **Dr. Ramesh Sharma** | `sharma@university.edu` | `SecurePassword123!` | CS301 (Fall 2026, $N \ge 15$)<br>CS405 (Fall 2026, $N = 0$) | Full 4-level dashboard, topic filters, empty state |
+| **Prof. Anita Desai** | `desai@university.edu` | `SecurePassword123!` | CS201 (Fall 2026, $N = 2$) | Privacy threshold demonstration: Small cohort masking ($N < 5$) |
