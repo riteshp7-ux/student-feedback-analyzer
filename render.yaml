@@ -1,8 +1,9 @@
+
 services:
   # 1. Frontend - Static Single-Page Application (Render Free Tier)
-  - type: static
+  - type: web
     name: feedback-analyzer-frontend
-    env: static
+    runtime: static
     buildCommand: npm --prefix frontend install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
     routes:
@@ -10,9 +11,11 @@ services:
         source: /*
         destination: /index.html
     envVars:
-      # Set to your backend's public API URL: https://<your-backend-service>.onrender.com/api/v1
+      # Set to your backend's public API URL
       - key: VITE_API_BASE_URL
         sync: false
+
+  # Keep your existing backend and NLP service definitions below this point.
 
   # 2. Backend - Express API Gateway & Aggregation Service (Render Free Web Service)
   - type: web
