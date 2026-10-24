@@ -2,9 +2,6 @@ import React from 'react';
 import { useAuth } from '../../auth/AuthContext';
 
 export default function DashboardHeader({
-  offerings = [],
-  selectedOfferingId = '',
-  onSelectOffering,
   onNavigateHome,
 }) {
   const { professor, logout } = useAuth();
@@ -30,26 +27,6 @@ export default function DashboardHeader({
         </div>
 
         <div className="dashboard-controls">
-          {offerings.length > 0 && (
-            <div className="offering-switcher">
-              <label htmlFor="dashboard-offering-select" className="switcher-label">
-                Course Offering:
-              </label>
-              <select
-                id="dashboard-offering-select"
-                className="select-input select-switcher"
-                value={selectedOfferingId}
-                onChange={(e) => onSelectOffering(e.target.value)}
-              >
-                {offerings.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.courseCode}: {o.courseTitle} ({o.term})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="faculty-profile">
             <span className="faculty-name">{professor?.fullName || 'Faculty Member'}</span>
             <button

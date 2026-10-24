@@ -5,13 +5,13 @@
 ---
 
 ## Short Description
-The Student Feedback Analyzer is a full-stack web platform built with React 19, Express, PostgreSQL, and Python FastAPI. It allows university students to submit authentic, completely anonymous course evaluations while providing professors with an evidence-backed analytics dashboard featuring sentiment classification and multi-label pedagogical topic extraction.
+The Student Feedback Analyzer is a full-stack web platform built with React 19, Express, PostgreSQL, and Python FastAPI. Students submit course feedback anonymously to professors using one-time registrar-issued offering tokens. Professors receive an evidence-backed analytics dashboard featuring sentiment classification and multi-label pedagogical topic extraction.
 
 ---
 
 ## Technical Highlights
 * **Decoupled Multi-Tier Architecture**: Built with clear architectural boundaries—React 19 SPA frontend, Express Node.js API Gateway, PostgreSQL relational database, and an isolated Python FastAPI NLP microservice.
-* **Authentic Anonymous Ingestion**: Enforces zero student tracking at the API and schema levels. Submissions require no user account and record no student IDs, names, emails, IP addresses, or browser fingerprints.
+* **Anonymous-to-Faculty Ingestion**: One-time course tokens enforce one response per roster entry and exact offering without storing direct student identity or tokens on feedback rows. A restricted table keeps a keyed roster pseudonym; privileged infrastructure operators may infer eligibility when they also have roster and pepper access.
 * **Deterministic Statistical NLP**: Engineered a pure-Python Multinomial Naive Bayes sentiment classifier and a Binary Relevance multi-label topic classifier without external LLM dependencies, running in $<1$ ms in memory.
 * **Asynchronous Inference & Resilience**: Submission transactions commit immediately to PostgreSQL (`analysis_status = 'pending'`), with NLP analysis dispatched asynchronously outside the request loop. Temporary NLP microservice downtime never disrupts student submissions.
 * **Role-Based Authentication & Horizontal Isolation**: Secured faculty dashboard with bcrypt password hashing and HMAC-SHA256 JWT tokens. Enforces course-offering ownership at the database level to block cross-faculty data inspection.

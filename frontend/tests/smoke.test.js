@@ -1,20 +1,28 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-test('frontend production build artifacts exist', () => {
-  const distDir = path.resolve(__dirname, '../dist');
-  assert.ok(fs.existsSync(distDir), 'dist directory must exist after build');
-  assert.ok(fs.existsSync(path.join(distDir, 'index.html')), 'dist/index.html must exist');
-});
+describe('frontend build artifacts', () => {
+  it('frontend production build artifacts exist', () => {
+    const distDir = path.resolve(__dirname, '../dist');
+    expect(fs.existsSync(distDir), 'dist directory must exist after build').toBe(true);
+    expect(fs.existsSync(path.join(distDir, 'index.html')), 'dist/index.html must exist').toBe(true);
+  });
 
-test('frontend index.html contains root mount node', () => {
-  const htmlPath = path.resolve(__dirname, '../index.html');
-  const content = fs.readFileSync(htmlPath, 'utf8');
-  assert.ok(content.includes('<div id="root"></div>'), 'Root div must exist in template');
+  it('frontend index.html contains root mount node', () => {
+    const htmlPath = path.resolve(__dirname, '../index.html');
+    const content = fs.readFileSync(htmlPath, 'utf8');
+    expect(content).toContain('<div id="root"></div>');
+  });
+
+  it('production build enforces a Content-Security-Policy', () => {
+    const htmlPath = path.resolve(__dirname, '../dist/index.html');
+    if (!fs.existsSync(htmlPath)) return; // dist not built in this checkout
+    const content = fs.readFileSync(htmlPath, 'utf8');
+    expect(content).toContain('Content-Security-Policy');
+    expect(content).toContain("script-src 'self'");
+  });
 });

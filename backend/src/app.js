@@ -3,8 +3,15 @@ const cors = require('cors');
 const env = require('./config/env');
 const { checkDatabaseHealth } = require('./config/db');
 const { securityHeadersMiddleware } = require('./middlewares/securityHeaders');
+const { getApiMetadata } = require('./apiMetadata');
 
 const app = express();
+
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 5) {
+  throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 5.');
+}
+app.set('trust proxy', proxyHops);
 
 // Disable X-Powered-By fingerprint
 app.disable('x-powered-by');
@@ -24,7 +31,11 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+    // Tagged so the global error handler returns 403 (not a generic 500).
+    const forbidden = new Error(`Origin ${origin} is not allowed by CORS.`);
+    forbidden.status = 403;
+    forbidden.code = 'ORIGIN_FORBIDDEN';
+    return callback(forbidden);
   },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -82,8 +93,13 @@ app.get('/api/v1/health', (req, res) => {
   });
 });
 
+app.get('/api/v1/meta', (req, res) => {
+  return res.status(200).json(getApiMetadata());
+});
+
 // API v1 Business Routes
 app.use('/api/v1', require('./modules/auth/authRoutes'));
+app.use('/api/v1', require('./modules/students/studentRoutes'));
 app.use('/api/v1', require('./modules/courses/courseRoutes'));
 app.use('/api/v1', require('./modules/feedback/feedbackRoutes'));
 app.use('/api/v1', require('./modules/dashboard/dashboardRoutes'));

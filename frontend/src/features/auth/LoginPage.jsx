@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage({ onLoginSuccess, onNavigateHome }) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,11 +38,54 @@ export default function LoginPage({ onLoginSuccess }) {
     <div className="login-page-container">
       <div className="login-card">
         <div className="login-header">
-          <span className="brand-badge">Academic Portal</span>
+          <div className="login-header-top">
+            <span className="brand-badge">Academic Portal</span>
+            {onNavigateHome && (
+              <button
+                type="button"
+                className="btn-text-link"
+                onClick={onNavigateHome}
+                title="Return to Student Feedback Form"
+              >
+                ← Student Portal
+              </button>
+            )}
+          </div>
           <h1 className="login-title">Faculty Sign In</h1>
           <p className="login-subtitle">
             Sign in with institutional credentials to review student feedback and teaching analytics.
           </p>
+          <div className="demo-credentials-box" style={{
+            background: 'var(--color-bg-secondary, #f8fafc)',
+            border: '1px solid var(--color-border, #e2e8f0)',
+            borderRadius: '6px',
+            padding: '0.65rem 0.85rem',
+            margin: '0.75rem 0',
+            fontSize: '0.82rem',
+            color: 'var(--color-text-secondary, #475569)'
+          }}>
+            <strong style={{ color: 'var(--color-text-primary, #0f172a)' }}>Faculty Demo Accounts (Password: <code>SecurePassword123!</code>):</strong>
+            <div style={{ marginTop: '0.4rem', fontFamily: 'monospace', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div style={{ cursor: 'pointer' }} onClick={() => { setEmail('sharma@university.edu'); setPassword('SecurePassword123!'); }} title="Click to fill">
+                • <code>sharma@university.edu</code> — Dr. Ramesh Sharma (CSE: CS301, IT: IT304 · Active Period)
+              </div>
+              <div style={{ cursor: 'pointer' }} onClick={() => { setEmail('desai@university.edu'); setPassword('SecurePassword123!'); }} title="Click to fill">
+                • <code>desai@university.edu</code> — Prof. Anita Desai (CSE: CS201, IT: IT204 · 90 responses each)
+              </div>
+              <div style={{ cursor: 'pointer' }} onClick={() => { setEmail('kavya.menon@university.edu'); setPassword('SecurePassword123!'); }} title="Click to fill">
+                • <code>kavya.menon@university.edu</code> — Prof. Kavya Menon (CSE: CS405, IT: IT101 · 25 responses each)
+              </div>
+              <div style={{ cursor: 'pointer' }} onClick={() => { setEmail('arjun.mehta@university.edu'); setPassword('SecurePassword123!'); }} title="Click to fill">
+                • <code>arjun.mehta@university.edu</code> — Prof. Arjun Mehta (CSE only: CS305, CS402 · 18 responses each)
+              </div>
+              <div style={{ cursor: 'pointer' }} onClick={() => { setEmail('vikram.singh@university.edu'); setPassword('SecurePassword123!'); }} title="Click to fill">
+                • <code>vikram.singh@university.edu</code> — Dr. Vikram Singh (CSE: CS303 [0 responses, N&lt;5], IT: IT302 [38 responses])
+              </div>
+            </div>
+            <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', fontStyle: 'italic', color: 'var(--color-text-muted, #64748b)' }}>
+              Tip: Click any faculty account above to auto-fill.
+            </div>
+          </div>
         </div>
 
         {error && (

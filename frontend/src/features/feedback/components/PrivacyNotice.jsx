@@ -11,14 +11,23 @@ export default function PrivacyNotice() {
       </div>
       <div className="privacy-content">
         <h2 id="privacy-heading" className="privacy-title">
-          100% Anonymous Feedback Guarantee
+          Your privacy
         </h2>
         <p className="privacy-body">
-          Your submission is confidential. We do <strong>not</strong> track, collect, or store your student ID, name, email, IP address, or browser fingerprint with this feedback.
+          Your feedback is not shown to professors with your student identity. The system uses your account only to verify that you are eligible to submit and that you have not already submitted feedback for this course offering.
         </p>
-        <p className="privacy-subtext">
-          Ratings and feedback comments are delivered to course faculty strictly in aggregated and anonymized form to uphold academic integrity.
-        </p>
+        <details className="privacy-details">
+          <summary className="privacy-summary">How privacy works</summary>
+          <div className="privacy-details-content">
+            <ul>
+              <li><strong>Anonymous Feedback:</strong> Your student identity is used only to verify that you are enrolled and have not yet submitted feedback for this course. Your ratings and comments are stored in an anonymous feedback record that contains no student name, ID, email, or account linkage.</li>
+              <li><strong>Submission Control:</strong> A separate submission-control record ensures exactly one submission per student per course offering without linking to your feedback responses.</li>
+              <li><strong>Faculty View:</strong> Course instructors view aggregate score summaries and anonymous written comments after the response threshold (N &ge; 5) is met. Submission dates are only ever shown at month granularity, and comment ordering does not reveal exact submission times.</li>
+              <li><strong>Level 1 Practical Anonymity:</strong> Instructors cannot identify submitters through normal application APIs. We do not claim cryptographic unlinkability; privileged system database administrators with low-level audit logs could theoretically correlate request timestamps.</li>
+              <li><strong>Self-Identification Warning:</strong> Do not include your name, student ID, email, or other identifying information in your written comment.</li>
+            </ul>
+          </div>
+        </details>
       </div>
     </aside>
   );

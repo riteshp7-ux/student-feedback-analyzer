@@ -2,7 +2,7 @@ import time
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, status, Request
+from fastapi import FastAPI, HTTPException, status, Request, Depends, Header
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
@@ -113,11 +113,28 @@ def readiness_check():
     )
 
 # -----------------------------------------------------------------------------
+# Service-to-service authentication
+# -----------------------------------------------------------------------------
+
+async def require_service_token(x_nlp_token: str = Header(default="")):
+    """Rejects /analyze calls that lack the shared X-NLP-Token when one is configured.
+
+    The service is bound to a private network, but co-tenant services on that
+    network should still not be able to invoke inference or read model behavior.
+    With NLP_SERVICE_TOKEN unset the check is disabled (local development).
+    """
+    if settings.auth_token and x_nlp_token != settings.auth_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing service token.",
+        )
+
+# -----------------------------------------------------------------------------
 # Inference Endpoints
 # -----------------------------------------------------------------------------
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze_feedback(payload: AnalyzeRequest):
+def analyze_feedback(payload: AnalyzeRequest, _auth: None = Depends(require_service_token)):
     """
     Performs deterministic sentiment and multi-label topic inference on student comment.
     Sensitive text is never logged to stdout/stderr.
@@ -149,6 +166,6 @@ def analyze_feedback(payload: AnalyzeRequest):
         )
 
 @app.post("/api/v1/analyze", response_model=AnalyzeResponse)
-def api_v1_analyze_feedback(payload: AnalyzeRequest):
+def api_v1_analyze_feedback(payload: AnalyzeRequest, _auth: None = Depends(require_service_token)):
     """Versioned inference endpoint matching /analyze contract."""
     return analyze_feedback(payload)

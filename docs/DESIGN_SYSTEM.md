@@ -179,7 +179,7 @@ A single segmented horizontal bar:
 
 ```text
 +---------------------------------------------------------------------------------+
-| HEADER: Student Feedback Analyzer | CS301 Fall 2026 [Switch] | Prof. Sharma    |
+| HEADER: Student Feedback Analyzer | CS301 Semester 1 2026-27 [Switch] | Prof. Sharma    |
 +---------------------------------------------------------------------------------+
 | LEVEL 1: OVERVIEW METRICS (3 Columns, Clean Hairline Border)                    |
 | +-------------------------+ +-------------------------+ +---------------------+ |

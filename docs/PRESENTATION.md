@@ -71,7 +71,7 @@
 * 7 normalized relational tables:
   * `professors`: Faculty credentials and profiles (passwords hashed via bcrypt).
   * `courses` & `course_offerings`: Course catalog and term offerings.
-  * `feedback_submissions`: Anonymous submissions (`offering_id`, `created_at`, `analysis_status`). **No student IDs or IP addresses**.
+  * `feedback_submissions`: Responses (`offering_id`, `created_at`, `analysis_status`) with no student IDs or eligibility tokens. A separate restricted table contains keyed eligibility pseudonyms to prevent duplicate issuance; anonymity is from professors, not privileged operators.
   * `feedback_ratings`: Granular 1-to-5 ratings across 5 pedagogical dimensions.
   * `feedback_sentiment`: Extracted sentiment (`positive`, `neutral`, `negative`) with confidence score.
   * `feedback_topic_mention`: 1:N normalized topic mentions linked to submissions.

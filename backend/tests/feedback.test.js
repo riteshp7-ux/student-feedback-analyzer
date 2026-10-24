@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const env = require('../src/config/env');
 const { query, closePool } = require('../src/config/db');
 
 // In-memory HTTP test client helper
@@ -29,6 +31,8 @@ async function request(handler, options = {}) {
 
 let activeOfferingId;
 let inactiveOfferingId;
+let studentA, studentB, studentC;
+let studentAToken, studentBToken, studentCToken;
 
 test.before(async () => {
   const { runMigrations } = require('../src/db/migrate');
@@ -36,22 +40,96 @@ test.before(async () => {
   await runMigrations();
   await seedDatabase();
 
-  const { rows: activeRows } = await query(
-    'SELECT id FROM course_offerings WHERE is_active = TRUE LIMIT 1'
-  );
-  activeOfferingId = activeRows[0].id;
+  const { rows: offerings } = await query(`
+    SELECT o.id, c.code, o.is_active
+    FROM course_offerings o
+    JOIN courses c ON c.id = o.course_id
+    WHERE o.term = 'Semester 1 2026-27' AND c.code = 'CS301';
+  `);
+  activeOfferingId = offerings[0].id;
 
   const { rows: inactiveRows } = await query(
     'SELECT id FROM course_offerings WHERE is_active = FALSE LIMIT 1'
   );
   inactiveOfferingId = inactiveRows[0].id;
+
+  const { rows: students } = await query('SELECT id, email FROM students;');
+  studentA = students.find((s) => s.email === 'aarav@student.university.edu');
+  studentB = students.find((s) => s.email === 'diya@student.university.edu');
+  studentC = students.find((s) => s.email === 'rohan@student.university.edu');
+
+  studentAToken = jwt.sign(
+    { studentId: studentA.id, email: studentA.email, role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  studentBToken = jwt.sign(
+    { studentId: studentB.id, email: studentB.email, role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  studentCToken = jwt.sign(
+    { studentId: studentC.id, email: studentC.email, role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
 });
 
 test.after(async () => {
   await closePool();
 });
 
-test('POST /api/v1/feedback - Happy Path: valid feedback with comment succeeds (201 Created)', async () => {
+test('POST /api/v1/feedback - Authentication Guard: unauthenticated request is rejected (401 UNAUTHORIZED)', async () => {
+  const payload = {
+    courseOfferingId: activeOfferingId,
+    ratings: {
+      teachingClarity: 5,
+      teachingPace: 4,
+      doubtHandling: 5,
+      engagement: 4,
+      practicalExamples: 3,
+    },
+    comment: 'Unauthenticated attempt',
+  };
+
+  const res = await request(app, {
+    method: 'POST',
+    path: '/api/v1/feedback',
+    body: payload,
+  });
+
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error.code, 'UNAUTHORIZED');
+});
+
+test('POST /api/v1/feedback - Enrollment Guard: non-enrolled student is rejected (403 STUDENT_NOT_ENROLLED)', async () => {
+  // Student C (rohan) is NOT enrolled in CS301
+  const payload = {
+    courseOfferingId: activeOfferingId,
+    ratings: {
+      teachingClarity: 5,
+      teachingPace: 4,
+      doubtHandling: 5,
+      engagement: 4,
+      practicalExamples: 3,
+    },
+    comment: 'Attempting submission to course I am not enrolled in',
+  };
+
+  const res = await request(app, {
+    method: 'POST',
+    path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentCToken}` },
+    body: payload,
+  });
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.error.code, 'STUDENT_NOT_ENROLLED');
+  assert.ok(res.body.error.message.includes('not enrolled'));
+});
+
+test('POST /api/v1/feedback - Happy Path: valid feedback by enrolled student succeeds (201 Created)', async () => {
+  // Student B (diya) is enrolled in CS301 and has not submitted yet
   const payload = {
     courseOfferingId: activeOfferingId,
     ratings: {
@@ -67,6 +145,7 @@ test('POST /api/v1/feedback - Happy Path: valid feedback with comment succeeds (
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payload,
   });
 
@@ -76,7 +155,7 @@ test('POST /api/v1/feedback - Happy Path: valid feedback with comment succeeds (
   // Anonymity check: never return internal row ID to client
   assert.equal(res.body.id, undefined);
 
-  // Directly verify database persistence
+  // Directly verify database persistence in feedback_submissions (NO student identity)
   const { rows } = await query(
     `SELECT * FROM feedback_submissions 
      WHERE offering_id = $1 AND comment_text = $2`,
@@ -88,41 +167,41 @@ test('POST /api/v1/feedback - Happy Path: valid feedback with comment succeeds (
   assert.equal(rows[0].rating_doubt_handling, 5);
   assert.equal(rows[0].rating_engagement, 4);
   assert.equal(rows[0].rating_practical_examples, 3);
-  // NLP status lifecycle check: comment present -> initialized as pending, may transition to completed if online or failed if offline
   assert.ok(['pending', 'completed', 'failed'].includes(rows[0].analysis_status));
+
+  // Directly verify submission-control record exists for Student B and CS301
+  const { rows: controlRows } = await query(
+    `SELECT * FROM feedback_submission_control
+     WHERE student_id = $1 AND course_offering_id = $2`,
+    [studentB.id, activeOfferingId]
+  );
+  assert.equal(controlRows.length, 1);
 });
 
-
-test('POST /api/v1/feedback - Happy Path: rating-only feedback (no comment) succeeds (201 Created)', async () => {
-  const payload = {
+test('POST /api/v1/feedback - One-Submission Rule: second submission by same student is rejected (409 ALREADY_SUBMITTED)', async () => {
+  // Student B just submitted above. Attempting second submission:
+  const duplicatePayload = {
     courseOfferingId: activeOfferingId,
     ratings: {
       teachingClarity: 4,
-      teachingPace: 3,
+      teachingPace: 4,
       doubtHandling: 4,
-      engagement: 3,
-      practicalExamples: 2,
+      engagement: 4,
+      practicalExamples: 4,
     },
+    comment: 'Attempting duplicate submission',
   };
 
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
-    body: payload,
+    headers: { Authorization: `Bearer ${studentBToken}` },
+    body: duplicatePayload,
   });
 
-  assert.equal(res.status, 201);
-  assert.equal(res.body.success, true);
-
-  // Directly verify database persistence and analysis_status = 'not_applicable'
-  const { rows } = await query(
-    `SELECT * FROM feedback_submissions 
-     WHERE offering_id = $1 AND comment_text IS NULL AND rating_practical_examples = 2
-     ORDER BY created_at DESC LIMIT 1`,
-    [activeOfferingId]
-  );
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].analysis_status, 'not_applicable');
+  assert.equal(res.status, 409);
+  assert.equal(res.body.error.code, 'ALREADY_SUBMITTED');
+  assert.ok(res.body.error.message.includes('already been submitted'));
 });
 
 test('POST /api/v1/feedback - Validation: missing required rating returns 422 with details', async () => {
@@ -140,6 +219,7 @@ test('POST /api/v1/feedback - Validation: missing required rating returns 422 wi
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payload,
   });
 
@@ -163,6 +243,7 @@ test('POST /api/v1/feedback - Validation: rating out of bounds (0 or 6) returns 
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payloadOutOfRange,
   });
 
@@ -181,13 +262,14 @@ test('POST /api/v1/feedback - Validation: unknown rating dimension is rejected (
       doubtHandling: 4,
       engagement: 4,
       practicalExamples: 4,
-      unsupportedExtraDimension: 5, // Forbidden unknown dimension
+      unsupportedExtraDimension: 5,
     },
   };
 
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payload,
   });
 
@@ -198,7 +280,7 @@ test('POST /api/v1/feedback - Validation: unknown rating dimension is rejected (
 test('POST /api/v1/feedback - Privacy Boundary: unexpected identity fields are rejected (422)', async () => {
   const payloadWithStudentIdentity = {
     courseOfferingId: activeOfferingId,
-    studentId: 'STU12345678', // Malicious attempt to inject identity
+    studentId: 'STU12345678', // Forbidden identity field injection
     studentEmail: 'student@university.edu',
     ratings: {
       teachingClarity: 5,
@@ -212,6 +294,7 @@ test('POST /api/v1/feedback - Privacy Boundary: unexpected identity fields are r
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payloadWithStudentIdentity,
   });
 
@@ -235,6 +318,7 @@ test('POST /api/v1/feedback - Nonexistent offering returns 404 RESOURCE_NOT_FOUN
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payload,
   });
 
@@ -258,6 +342,7 @@ test('POST /api/v1/feedback - Inactive offering returns 400 OFFERING_INACTIVE', 
   const res = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
     body: payload,
   });
 
@@ -267,10 +352,8 @@ test('POST /api/v1/feedback - Inactive offering returns 400 OFFERING_INACTIVE', 
 });
 
 test('POST /api/v1/feedback - Transaction Rollback: error during transaction rolls back cleanly', async () => {
-  // Test transactional safety: call service directly with an offeringId that gets deleted or fails
   const { submitFeedback } = require('../src/modules/feedback/feedbackService');
 
-  // Verify that an invalid insert inside transaction leaves 0 orphaned feedback rows
   const initialCountRes = await query('SELECT COUNT(*)::int AS count FROM feedback_submissions');
   const initialCount = initialCountRes.rows[0].count;
 
@@ -281,7 +364,7 @@ test('POST /api/v1/feedback - Transaction Rollback: error during transaction rol
         teachingClarity: 4, teachingPace: 4, doubtHandling: 4, engagement: 4, practicalExamples: 4
       },
       comment: 'Rollback test',
-    })
+    }, studentB.id)
   );
 
   const finalCountRes = await query('SELECT COUNT(*)::int AS count FROM feedback_submissions');

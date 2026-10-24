@@ -25,11 +25,11 @@ async function handleFeedbackSubmission(req, res, next) {
       });
     }
 
-    // 2. Delegate to service layer
-    await submitFeedback(validationResult.data);
+    // 2. Delegate to service layer with authenticated student identity from JWT
+    await submitFeedback(validationResult.data, req.user.studentId);
 
     // 3. Return canonical 201 response adhering strictly to API_CONTRACT.md
-    // (Never returns the internal submission ID or metadata to the anonymous student client)
+    // (Never returns the internal submission ID or metadata to the student client)
     return res.status(201).json({
       success: true,
       message: 'Feedback submitted successfully.',

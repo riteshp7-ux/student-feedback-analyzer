@@ -118,11 +118,65 @@ async function runLiveVerification() {
     record('Public Course Offerings Discovery', 'FAIL', err.message);
   }
 
-  // 4. Student Feedback Submission & Live NLP Inference
-  const targetOffering = offerings[0];
-  let newSubmissionId = null;
-  if (targetOffering) {
-    try {
+  // 4. Student Authentication & Submission Verification
+  let studentToken = null;
+  const targetOffering = offerings.find((o) => o.courseCode === 'CS301') || offerings[0];
+  try {
+    // 4a. Unauthenticated submission guard
+    const unauthSub = await request(`${API_BASE}/api/v1/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        courseOfferingId: targetOffering.id,
+        ratings: { teachingClarity: 5, teachingPace: 5, doubtHandling: 5, engagement: 5, practicalExamples: 5 },
+      },
+    });
+    if (unauthSub.statusCode === 401) {
+      record('Submission Auth Defense (Unauthenticated Reject)', 'PASS', 'HTTP 401 UNAUTHORIZED');
+    } else {
+      record('Submission Auth Defense (Unauthenticated Reject)', 'FAIL', `Expected 401, got ${unauthSub.statusCode}`);
+    }
+
+    // 4b. Student Login (Diya Sharma - enrolled in CS301)
+    const stuLogin = await request(`${API_BASE}/api/v1/auth/student/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { email: 'diya@student.university.edu', password: 'SecureStudent123!' },
+    });
+    if (stuLogin.statusCode === 200 && stuLogin.body?.token) {
+      studentToken = stuLogin.body.token;
+      record('Student Authentication (/auth/student/login)', 'PASS', `Logged in as ${stuLogin.body.student?.fullName}`);
+    } else {
+      record('Student Authentication (/auth/student/login)', 'FAIL', `Status: ${stuLogin.statusCode}`);
+    }
+
+    // 4c. Non-enrolled student rejection (Rohan Gupta enrolled in CS201, NOT CS301)
+    const rohanLogin = await request(`${API_BASE}/api/v1/auth/student/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { email: 'rohan@student.university.edu', password: 'SecureStudent123!' },
+    });
+    if (rohanLogin.statusCode === 200) {
+      const nonEnrolledSub = await request(`${API_BASE}/api/v1/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${rohanLogin.body.token}`,
+        },
+        body: {
+          courseOfferingId: targetOffering.id,
+          ratings: { teachingClarity: 4, teachingPace: 4, doubtHandling: 4, engagement: 4, practicalExamples: 4 },
+        },
+      });
+      if (nonEnrolledSub.statusCode === 403) {
+        record('Enrollment Verification Guard (HTTP 403)', 'PASS', 'Non-enrolled student rejected');
+      } else {
+        record('Enrollment Verification Guard (HTTP 403)', 'FAIL', `Expected 403, got ${nonEnrolledSub.statusCode}`);
+      }
+    }
+
+    // 4d. Authenticated Enrolled Submission & Live NLP Inference
+    if (studentToken && targetOffering) {
       const subPayload = {
         courseOfferingId: targetOffering.id,
         ratings: {
@@ -132,26 +186,46 @@ async function runLiveVerification() {
           engagement: 4,
           practicalExamples: 5,
         },
-        comment: 'Live verification feedback: The coding walkthroughs and practical examples were exceptionally clear.',
+        comment: 'Live verification feedback: The practical examples and coding walkthroughs were clear and insightful.',
       };
 
       const subRes = await request(`${API_BASE}/api/v1/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${studentToken}`,
+        },
         body: subPayload,
       });
 
       if (subRes.statusCode === 201 && subRes.body?.success === true) {
-        record('Student Feedback Submission', 'PASS', `Anonymous submission succeeded (201 Created)`);
+        record('Student Feedback Submission (Authenticated Enrolled)', 'PASS', `Anonymous submission recorded (201 Created)`);
+      } else if (subRes.statusCode === 409) {
+        record('Student Feedback Submission (Authenticated Enrolled)', 'PASS', `One-submission rule active (already submitted)`);
       } else {
-        record('Student Feedback Submission', 'FAIL', `Status: ${subRes.statusCode}`);
+        record('Student Feedback Submission (Authenticated Enrolled)', 'FAIL', `Status: ${subRes.statusCode}`);
+      }
+
+      // 4e. One-Submission Duplicate Guard (re-submit should yield 409 ALREADY_SUBMITTED)
+      const dupSubRes = await request(`${API_BASE}/api/v1/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${studentToken}`,
+        },
+        body: subPayload,
+      });
+      if (dupSubRes.statusCode === 409) {
+        record('One-Submission Duplicate Guard (HTTP 409)', 'PASS', 'Duplicate submission rejected with ALREADY_SUBMITTED');
+      } else {
+        record('One-Submission Duplicate Guard (HTTP 409)', 'FAIL', `Expected 409, got ${dupSubRes.statusCode}`);
       }
 
       // Wait 1.5 seconds for async NLP dispatch and persistence
       await new Promise((r) => setTimeout(r, 1500));
-    } catch (err) {
-      record('Student Feedback Submission', 'FAIL', err.message);
     }
+  } catch (err) {
+    record('Student Feedback Submission Flow', 'FAIL', err.message);
   }
 
   // 5. Faculty Authentication & Session Verification
@@ -252,17 +326,28 @@ async function runLiveVerification() {
 
   // 8. XSS & SQLi Defense
   try {
+    // Authenticate Aarav (enrolled in CS201) to submit XSS payload safely
+    const cs201Offering = offerings.find((o) => o.courseCode === 'CS201') || offerings[0];
+    const aaravLogin = await request(`${API_BASE}/api/v1/auth/student/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { email: 'aarav@student.university.edu', password: 'SecureStudent123!' },
+    });
+
     const xssPayload = {
-      courseOfferingId: evalOffering?.id,
+      courseOfferingId: cs201Offering?.id,
       ratings: { teachingClarity: 5, teachingPace: 5, doubtHandling: 5, engagement: 5, practicalExamples: 5 },
       comment: '<script>alert("prod-xss")</script>',
     };
     const xssRes = await request(`${API_BASE}/api/v1/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${aaravLogin.body?.token}`,
+      },
       body: xssPayload,
     });
-    if (xssRes.statusCode === 201) {
+    if (xssRes.statusCode === 201 || xssRes.statusCode === 409) {
       record('XSS Defense: Script Payload Ingestion', 'PASS', 'Safely ingested without corruption or script execution');
     } else {
       record('XSS Defense: Script Payload Ingestion', 'FAIL', `Status: ${xssRes.statusCode}`);

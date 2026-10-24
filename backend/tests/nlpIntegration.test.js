@@ -4,7 +4,7 @@ const http = require('node:http');
 const { pool } = require('../src/config/db');
 const { runMigrations } = require('../src/db/migrate');
 const { seedDatabase } = require('../src/db/seeds/seed');
-const { submitFeedback } = require('../src/modules/feedback/feedbackService');
+const { insertFeedbackSubmission } = require('../src/modules/feedback/feedbackRepository');
 const {
   processSubmissionAnalysis,
   processPendingBatch,
@@ -172,9 +172,9 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
   // ---------------------------------------------------------------------------
 
   test('End-to-End Success: comment analysis persists sentiment and topics atomically', async () => {
-    // 1. Student submits feedback
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    // 1. Create a pending feedback submission fixture
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 5,
         teachingPace: 4,
@@ -183,19 +183,20 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 5,
       },
       comment: 'The coding demonstrations solved on board were fantastic and clear.',
-    });
+      analysisStatus: 'pending',
+    }, pool);
 
-    assert.ok(submission.id, 'Submission must return an ID');
+    assert.ok(submissionId, 'Submission must return an ID');
 
     // 2. Verify initial pending status
     const { rows: initialRows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(initialRows[0].analysis_status, 'pending');
 
     // 3. Process analysis with active mock NLP server
-    const analysisRes = await processSubmissionAnalysis(submission.id, {
+    const analysisRes = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
@@ -204,14 +205,14 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // 4. Verify database state
     const { rows: completedRows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(completedRows[0].analysis_status, 'completed');
 
     // 5. Verify sentiment table
     const { rows: sentRows } = await pool.query(
       'SELECT label, score FROM feedback_sentiment WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(sentRows.length, 1);
     assert.equal(sentRows[0].label, 'positive');
@@ -220,7 +221,7 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // 6. Verify topic mentions table
     const { rows: topicRows } = await pool.query(
       'SELECT topic_key, confidence FROM feedback_topic_mention WHERE submission_id = $1 ORDER BY topic_key ASC;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(topicRows.length, 2);
     assert.equal(topicRows[0].topic_key, 'practical_examples');
@@ -246,9 +247,9 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
       res.end(JSON.stringify({ detail: 'Model unavailable' }));
     };
 
-    // 1. Student submits feedback
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    // 1. Create submission fixture
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 3,
         teachingPace: 2,
@@ -257,10 +258,11 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 3,
       },
       comment: 'Too fast paced lectures.',
-    });
+      analysisStatus: 'pending',
+    }, pool);
 
     // 2. Process analysis with failing server
-    const analysisRes = await processSubmissionAnalysis(submission.id, {
+    const analysisRes = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
@@ -270,7 +272,7 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // 3. Verify submission and ratings remain 100% intact
     const { rows: subRows } = await pool.query(
       'SELECT rating_pace, comment_text, analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(subRows[0].rating_pace, 2);
     assert.equal(subRows[0].comment_text, 'Too fast paced lectures.');
@@ -279,7 +281,7 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // 4. Verify no sentiment was falsely inserted
     const { rows: sentRows } = await pool.query(
       'SELECT * FROM feedback_sentiment WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(sentRows.length, 0);
   });
@@ -303,8 +305,8 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
       );
     };
 
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 4,
         teachingPace: 4,
@@ -313,9 +315,10 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 4,
       },
       comment: 'Average lecture session.',
-    });
+      analysisStatus: 'pending',
+    }, pool);
 
-    const analysisRes = await processSubmissionAnalysis(submission.id, {
+    const analysisRes = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
@@ -325,14 +328,14 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // Status marked failed
     const { rows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(rows[0].analysis_status, 'failed');
 
     // Database remains unpolluted
     const { rows: sentRows } = await pool.query(
       'SELECT * FROM feedback_sentiment WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(sentRows.length, 0);
   });
@@ -342,8 +345,8 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
   // ---------------------------------------------------------------------------
 
   test('Idempotency: duplicate processing of same submission produces consistent state', async () => {
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 5,
         teachingPace: 5,
@@ -352,17 +355,18 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 5,
       },
       comment: 'Clear explanations and interactive examples.',
-    });
+      analysisStatus: 'pending',
+    }, pool);
 
     // Run 1: initial analysis
-    const res1 = await processSubmissionAnalysis(submission.id, {
+    const res1 = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
     assert.equal(res1.success, true);
 
     // Run 2: duplicate analysis
-    const res2 = await processSubmissionAnalysis(submission.id, {
+    const res2 = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
@@ -371,14 +375,14 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
     // Verify exactly 1 sentiment row exists
     const { rows: sentRows } = await pool.query(
       'SELECT COUNT(*)::int AS count FROM feedback_sentiment WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(sentRows[0].count, 1);
 
     // Verify exactly 2 topic rows exist
     const { rows: topicRows } = await pool.query(
       'SELECT COUNT(*)::int AS count FROM feedback_topic_mention WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(topicRows[0].count, 2);
   });
@@ -395,8 +399,8 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
       res.end('{}');
     };
 
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 5,
         teachingPace: 5,
@@ -405,11 +409,12 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 5,
       },
       comment: null,
-    });
+      analysisStatus: 'not_applicable',
+    }, pool);
 
     const { rows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(rows[0].analysis_status, 'not_applicable');
     assert.equal(nlpCalled, false, 'NLP must not be called when comment is null');
@@ -426,8 +431,8 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
       res.end(JSON.stringify({ detail: 'Down' }));
     };
 
-    const submission = await submitFeedback({
-      courseOfferingId: activeOfferingId,
+    const submissionId = await insertFeedbackSubmission({
+      offeringId: activeOfferingId,
       ratings: {
         teachingClarity: 3,
         teachingPace: 3,
@@ -436,13 +441,14 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
         practicalExamples: 3,
       },
       comment: 'Doubts were skipped frequently.',
-    });
+      analysisStatus: 'pending',
+    }, pool);
 
     // Fails initially
-    await processSubmissionAnalysis(submission.id, { nlpUrl: mockUrl, timeoutMs: 1000 });
+    await processSubmissionAnalysis(submissionId, { nlpUrl: mockUrl, timeoutMs: 1000 });
     const { rows: failRows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(failRows[0].analysis_status, 'failed');
 
@@ -463,7 +469,7 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
 
     // 3. Run recovery sweep
     // Point default NLP_SERVICE_URL temporarily or call processSubmissionAnalysis directly
-    const resSweep = await processSubmissionAnalysis(submission.id, {
+    const resSweep = await processSubmissionAnalysis(submissionId, {
       nlpUrl: mockUrl,
       timeoutMs: 1000,
     });
@@ -471,13 +477,13 @@ describe('Stage 16: Backend ↔ NLP Integration & Asynchronous Analysis', () => 
 
     const { rows: recoveredRows } = await pool.query(
       'SELECT analysis_status FROM feedback_submissions WHERE id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(recoveredRows[0].analysis_status, 'completed');
 
     const { rows: sentRows } = await pool.query(
       'SELECT label FROM feedback_sentiment WHERE submission_id = $1;',
-      [submission.id]
+      [submissionId]
     );
     assert.equal(sentRows[0].label, 'negative');
   });

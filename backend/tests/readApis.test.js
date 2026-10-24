@@ -34,6 +34,7 @@ let cs201LowResponseOfferingId;
 let cs405ZeroResponseOfferingId;
 let sharmaToken;
 let desaiToken;
+let studentDiyaToken;
 
 test.before(async () => {
   const { runMigrations } = require('../src/db/migrate');
@@ -59,11 +60,19 @@ test.before(async () => {
     { expiresIn: '24h' }
   );
 
+  const { rows: stuRows } = await query("SELECT id, email FROM students WHERE email = 'diya@student.university.edu'");
+  const studentDiya = stuRows[0];
+  studentDiyaToken = jwt.sign(
+    { studentId: studentDiya.id, email: studentDiya.email, role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
   const { rows: offerings } = await query(`
     SELECT o.id, c.code
     FROM course_offerings o
     JOIN courses c ON c.id = o.course_id
-    WHERE o.term = 'Fall 2026';
+    WHERE o.term = 'Semester 1 2026-27';
   `);
 
   cs301OfferingId = offerings.find(o => o.code === 'CS301').id;
@@ -87,7 +96,7 @@ test('GET /api/v1/course-offerings - Returns active course offerings with metada
   const cs301 = res.body.find(item => item.courseCode === 'CS301');
   assert.ok(cs301);
   assert.equal(cs301.courseTitle, 'Database Management Systems');
-  assert.equal(cs301.term, 'Fall 2026');
+  assert.equal(cs301.term, 'Semester 1 2026-27');
   assert.equal(cs301.instructorName, 'Dr. Ramesh Sharma');
   // Privacy check: no internal professor password hashes or emails exposed
   assert.equal(cs301.password_hash, undefined);
@@ -192,8 +201,11 @@ test('GET /api/v1/feedback/:id - Happy Path: retrieves paginated comments', asyn
   assert.ok(first.ratings);
   assert.equal(typeof first.ratings.teachingClarity, 'number');
   assert.ok(Array.isArray(first.topics));
-  // Anonymity check: Coarse YYYY-MM-DD date representation
-  assert.match(first.submittedDate, /^\d{4}-\d{2}-\d{2}$/);
+  // Anonymity check: month-level granularity only ("Mon YYYY"); day-precision
+  // dates and per-comment retry counters must never be exposed.
+  assert.match(first.submittedMonth, /^[A-Z][a-z]{2} \d{4}$/);
+  assert.equal(first.submittedDate, undefined, 'Day-precision submittedDate must not be exposed');
+  assert.equal(first.analysisAttempts, undefined, 'Per-comment retry counters must not be exposed');
 });
 
 test('GET /api/v1/feedback/:id - Topic Filter: filters comments by topicKey', async () => {
@@ -239,6 +251,7 @@ test('Cross-Endpoint Consistency: POST /feedback immediately reflects in GET /fe
   const submitRes = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentDiyaToken}` },
     body: {
       courseOfferingId: cs301OfferingId,
       ratings: {

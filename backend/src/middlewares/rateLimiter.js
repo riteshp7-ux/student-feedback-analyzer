@@ -12,6 +12,11 @@ function createRateLimiter(options = {}) {
   const code = options.code || 'TOO_MANY_REQUESTS';
   const forceEnable = options.forceEnable || false;
 
+  // Custom bucket-key strategy. Defaults to per-IP, but login routes pass an
+  // ip+email key so a shared campus NAT or a reverse proxy (where every client
+  // shares one observed IP) cannot lock out unrelated users.
+  const keyGenerator = options.keyGenerator || ((req) => req.ip || req.connection?.remoteAddress || '127.0.0.1');
+
   const store = new Map();
 
   // Periodic sweeper to evict expired records and prevent unbounded memory growth
@@ -35,13 +40,13 @@ function createRateLimiter(options = {}) {
       return next();
     }
 
-    const ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    const bucketKey = keyGenerator(req);
     const now = Date.now();
 
-    let entry = store.get(ip);
+    let entry = store.get(bucketKey);
     if (!entry || now > entry.resetTime) {
       entry = { count: 1, resetTime: now + windowMs };
-      store.set(ip, entry);
+      store.set(bucketKey, entry);
     } else {
       entry.count += 1;
     }
@@ -74,10 +79,34 @@ function createRateLimiter(options = {}) {
   };
 }
 
-// 1. Strict Limiter for Authentication (Mitigates Credential Stuffing & Brute Force)
+// 1a. Account-scoped login limiter (primary brute-force defense).
+// Keyed on client IP + target email: caps attempts per account regardless of
+// which shared egress IP the traffic arrives from, without letting one account's
+// attackers lock out every other user behind the same NAT.
+const loginIdentityKey = (req) => {
+  const ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+  const rawIdentifier = typeof req.body?.email === 'string'
+    ? req.body.email
+    : (typeof req.body?.loginId === 'string' ? req.body.loginId : '(unknown)');
+  const identifier = rawIdentifier.trim().toLowerCase();
+  return `${ip}|${identifier}`;
+};
+
+const authIdentityLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per 15 minutes per IP+account
+  keyGenerator: loginIdentityKey,
+  message: 'Too many login attempts for this account. Please wait 15 minutes before trying again.',
+  code: 'AUTH_RATE_LIMIT_EXCEEDED',
+});
+
+// 1b. Coarse per-IP flood guard. Deliberately generous: campus NATs and
+// reverse proxies collapse many legitimate users onto one observed IP, so the
+// tight cap lives in the identity limiter above. Note: with TRUST_PROXY_HOPS
+// unset on a proxied deployment this bucket is shared deployment-wide.
 const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per 15 minutes per IP
+  max: 60, // 60 attempts per 15 minutes per observed IP
   message: 'Too many login attempts. Please wait 15 minutes before trying again.',
   code: 'AUTH_RATE_LIMIT_EXCEEDED',
 });
@@ -92,6 +121,7 @@ const feedbackLimiter = createRateLimiter({
 
 module.exports = {
   createRateLimiter,
+  authIdentityLimiter,
   authLimiter,
   feedbackLimiter,
 };

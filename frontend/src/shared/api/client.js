@@ -6,7 +6,14 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export async function apiClient(endpoint, options = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  let token = null;
+  if (typeof window !== 'undefined') {
+    if (endpoint.startsWith('/student') || (endpoint === '/feedback' && options.method === 'POST')) {
+      token = localStorage.getItem('student_token') || localStorage.getItem('token');
+    } else {
+      token = localStorage.getItem('token');
+    }
+  }
 
   const headers = {
     'Content-Type': 'application/json',

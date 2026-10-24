@@ -1,5 +1,5 @@
 const express = require('express');
-const { handleGetDashboard } = require('./dashboardController');
+const { handleGetDashboard, handleRequeueFailedAnalyses } = require('./dashboardController');
 const { authenticateToken } = require('../auth/authMiddleware');
 const { requireOfferingOwnership } = require('../auth/authorizationMiddleware');
 
@@ -12,6 +12,15 @@ router.get(
   authenticateToken,
   requireOfferingOwnership('courseOfferingId'),
   handleGetDashboard
+);
+
+// POST /api/v1/dashboard/:courseOfferingId/analysis/requeue
+// Requeues exhausted NLP analyses for an owned offering (dead-letter recovery path)
+router.post(
+  '/dashboard/:courseOfferingId/analysis/requeue',
+  authenticateToken,
+  requireOfferingOwnership('courseOfferingId'),
+  handleRequeueFailedAnalyses
 );
 
 module.exports = router;

@@ -9,6 +9,7 @@ const { z } = require('zod');
  * - strict(): rejects unexpected properties (e.g. studentId, email, IP)
  */
 const feedbackSubmissionSchema = z.object({
+  idempotencyKey: z.string().uuid('Idempotency key must be a valid UUID.').optional(),
   courseOfferingId: z
     .string({ required_error: 'Course offering ID is required.' })
     .uuid('Course offering ID must be a valid UUID.'),

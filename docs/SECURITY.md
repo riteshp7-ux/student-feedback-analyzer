@@ -32,35 +32,40 @@ Student feedback requires authentic anonymity to guarantee psychological safety 
 
 ---
 
-## 3. Professor Authentication & Authorization Architecture
+## 3. Student & Faculty Authentication Architecture
 
-### 1. Separation of Concerns
-* **Student Interface**: Fully public and anonymous. Does not require login, does not issue tokens, and never stores or links user identifiers to submissions.
-* **Professor Interface**: Protected behind institutional credentials. Faculty members must authenticate to access course evaluations.
+### 1. Separation of Concerns & Level 1 Practical Anonymity
+* **Student Interface**: Students authenticate using institutional student credentials to prove enrollment and enforce the one-submission-per-course rule. Submitted feedback records in `feedback_submissions` contain NO student ID, email, or name. A separate `feedback_submission_control` table records eligibility claims without any linkage to feedback rows. Professors cannot view student identity through normal application APIs. Privileged database administrators with access to low-level transaction logs could theoretically correlate timestamps; cryptographic unlinkability is not claimed.
+* **Professor Interface**: Protected behind institutional credentials. Faculty members authenticate to view aggregate analytics and anonymized student feedback for their assigned courses.
 
 ### 2. Password Security & Credential Storage
-* Passwords are stored in PostgreSQL using `bcrypt` (work factor 10) with per-user salt.
+* Passwords for both students and professors are stored in PostgreSQL using `bcrypt` (work factor 10) with per-user salts.
 * Plaintext passwords and password hashes are never logged, never returned in API payloads, and never cached.
 * Login timing attack mitigation: queries execute uniform verification paths to prevent username enumeration via response latency.
 
 ### 3. Token Architecture
 * Transport: Standard HTTP header (`Authorization: Bearer <token>`).
 * Format: Signed HMAC-SHA256 JSON Web Token (JWT) with minimum 32-character server secret in production.
-* Payload: `{ "professorId": "<uuid>", "email": "<string>" }`.
-* Expiration: Fixed 24-hour expiration (`expiresIn: "24h"`). Expired or tampered tokens return HTTP 401 with `TOKEN_EXPIRED` or `INVALID_TOKEN`.
+* Payloads:
+  - Student: `{ "studentId": "<uuid>", "email": "<string>", "role": "student" }`.
+  - Professor: `{ "professorId": "<uuid>", "email": "<string>", "role": "faculty" }`.
+* Expiration: Fixed 24-hour expiration (`expiresIn: "24h"`). Expired or tampered tokens return HTTP 401 with `TOKEN_EXPIRED` or `INVALID_TOKEN`. Role-mismatched routes return HTTP 403 `FORBIDDEN`.
 
 ### 4. Course Offering Authorization Matrix
-Server-side middleware (`requireOfferingOwnership`) validates that the requesting professor strictly owns the course offering before any feedback or aggregate analytics are returned:
+Server-side middleware (`authenticateStudent`, `requireOfferingOwnership`) validates roles and ownership boundaries before access is permitted:
 
 | Resource / Endpoint | Student | Unauthenticated | Assigned Professor | Non-Assigned Professor |
 | :--- | :---: | :---: | :---: | :---: |
+| `POST /api/v1/auth/student/login` | Allowed | Allowed | Allowed | Allowed |
+| `GET /api/v1/student/me` | Own Profile | Denied (`401`) | Denied (`403`) | Denied (`403`) |
+| `GET /api/v1/student/offerings` | Enrolled Offerings | Denied (`401`) | Denied (`403`) | Denied (`403`) |
+| `POST /api/v1/feedback` | Allowed (if enrolled & unsubmitted) | Denied (`401`) | Denied (`403`) | Denied (`403`) |
 | `GET /api/v1/course-offerings` | Allowed | Allowed | Allowed | Allowed |
-| `POST /api/v1/feedback` | Allowed (Rate-limited) | Allowed (Rate-limited) | Allowed | Allowed |
 | `POST /api/v1/auth/login` | N/A | Allowed (Rate-limited) | Allowed | Allowed |
-| `GET /api/v1/auth/me` | Denied (`401`) | Denied (`401`) | Allowed | Allowed |
-| `GET /api/v1/professor/offerings` | Denied (`401`) | Denied (`401`) | Own Assigned Data | Own Assigned Data |
-| `GET /api/v1/dashboard/:courseOfferingId` | Denied (`401`) | Denied (`401`) | Allowed (`200`) | Denied (`403 FORBIDDEN`) |
-| `GET /api/v1/feedback/:courseOfferingId` | Denied (`401`) | Denied (`401`) | Allowed (`200`) | Denied (`403 FORBIDDEN`) |
+| `GET /api/v1/auth/me` | Denied (`403`) | Denied (`401`) | Own Profile | Own Profile |
+| `GET /api/v1/professor/offerings` | Denied (`403`) | Denied (`401`) | Own Assigned Data | Own Assigned Data |
+| `GET /api/v1/dashboard/:courseOfferingId` | Denied (`403`) | Denied (`401`) | Allowed (`200`) | Denied (`403 FORBIDDEN`) |
+| `GET /api/v1/feedback/:courseOfferingId` | Denied (`403`) | Denied (`401`) | Allowed (`200`) | Denied (`403 FORBIDDEN`) |
 
 ---
 
@@ -84,7 +89,7 @@ All backend responses enforce standard defensive headers:
 
 ### 3. API Abuse Protection & Rate Limiting
 - **Authentication Limiter (`POST /api/v1/auth/login`)**: Bounded to 10 attempts per 15 minutes per IP address. Mitigates automated credential stuffing and brute-force password guessing.
-- **Submission Limiter (`POST /api/v1/feedback`)**: Bounded to 30 submissions per minute per IP address. Mitigates automated form spamming.
+- **Submission Limiter (`POST /api/v1/feedback`)**: Bounded to 30 submissions per minute per IP address. This is an abuse safeguard only; it does not verify enrollment or enforce one feedback per student/course.
 - In-memory rate limiting stores automatically prune expired IP entries to avoid unbounded memory usage.
 
 ### 4. Cross-Origin Resource Sharing (CORS)
@@ -119,6 +124,6 @@ All backend responses enforce standard defensive headers:
 - Unauthorized callers and non-assigned professors cannot retrieve feedback comments or analytics for courses they do not teach (enforced via database ownership checks returning HTTP 401/403).
 
 ### Known Operational Limitations
-- **In-Memory Rate Limiting**: The rate limiting store is currently in-process memory. In multi-instance horizontal scaling behind a round-robin load balancer, limits apply per instance rather than globally across all instances unless centralized caching (e.g. Redis) is introduced in a future stage.
-- **Reverse Proxy Client IPs**: In deployments behind reverse proxies (Nginx, AWS ALB, Cloudflare), `app.set('trust proxy', 1)` must be configured according to proxy hops to ensure `req.ip` reflects the true client IP rather than the load balancer.
+- **In-Memory Rate Limiting**: The rate limiting store is in-process memory. For multi-instance deployments, use shared rate controls at the trusted API gateway/load balancer; app-level limits apply per replica.
+- **Reverse Proxy Client IPs**: `TRUST_PROXY_HOPS` defaults to `0`. Configure the exact number (1–5) of trusted proxy hops only when the gateway sanitizes forwarding headers. Incorrect configuration can allow IP spoofing or throttle a shared campus IP as one caller.
 - **Student Content Self-Disclosure**: While the system collects zero identity metadata, students can inadvertently write their own names or identifiable scenarios inside the free-text comment box. The frontend explicitly warns students before submission: *"Please share specific, actionable feedback... Remember to avoid including personal identifying details."*

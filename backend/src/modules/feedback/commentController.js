@@ -1,21 +1,12 @@
 const { z } = require('zod');
 const { getOfferingStatus } = require('./feedbackRepository');
 const { getOfferingFeedbackComments } = require('./commentRepository');
-
-const approvedTopics = [
-  'teaching_clarity',
-  'teaching_pace',
-  'practical_examples',
-  'doubt_handling',
-  'engagement',
-  'assignments',
-  'course_content',
-];
+const { APPROVED_TOPICS } = require('../topics');
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(15),
-  topic: z.enum(approvedTopics).optional(),
+  topic: z.enum(APPROVED_TOPICS).optional(),
   sentiment: z.enum(['positive', 'neutral', 'negative']).optional(),
 });
 
@@ -64,7 +55,7 @@ async function handleGetOfferingFeedback(req, res, next) {
     }
 
     // 4. Retrieve paginated comments
-    const { total, comments } = await getOfferingFeedbackComments({
+    const { total, comments, privacySuppressed } = await getOfferingFeedbackComments({
       offeringId: courseOfferingId,
       page,
       pageSize,
@@ -81,6 +72,10 @@ async function handleGetOfferingFeedback(req, res, next) {
         totalComments: total,
         totalPages,
       },
+      privacySuppressed,
+      message: privacySuppressed
+        ? 'Written feedback is hidden until at least 5 matching comments are available.'
+        : null,
       comments,
     });
   } catch (err) {

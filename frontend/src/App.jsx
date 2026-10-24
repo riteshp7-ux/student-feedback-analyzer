@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import StudentFeedbackPage from './features/feedback/pages/StudentFeedbackPage';
 import LoginPage from './features/auth/LoginPage';
@@ -6,14 +7,20 @@ import DashboardPage from './features/dashboard/pages/DashboardPage';
 
 function AppRouter() {
   const { isAuthenticated, isLoading } = useAuth();
-  // View states: 'student' | 'login' | 'dashboard'
-  const [currentView, setCurrentView] = useState(() => {
-    // If URL hash is #faculty or #login, default there
-    if (typeof window !== 'undefined' && (window.location.hash === '#faculty' || window.location.hash === '#login')) {
-      return 'login';
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Backward compatibility with legacy hash routing (#login, #faculty, #dashboard)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#login' || hash === '#faculty') {
+        navigate('/login', { replace: true });
+      } else if (hash === '#dashboard') {
+        navigate('/dashboard', { replace: true });
+      }
     }
-    return 'student';
-  });
+  }, [navigate]);
 
   if (isLoading) {
     return (
@@ -24,34 +31,98 @@ function AppRouter() {
     );
   }
 
-  // If user navigated to faculty section:
-  if (currentView === 'faculty' || currentView === 'login' || currentView === 'dashboard') {
-    if (isAuthenticated) {
-      return (
-        <DashboardPage
-          onNavigateHome={() => setCurrentView('student')}
-        />
-      );
-    }
-    return (
-      <LoginPage
-        onLoginSuccess={() => setCurrentView('dashboard')}
+  // Only accept known in-app destinations. A query parameter must never
+  // redirect an authenticated user to an arbitrary path or external URL.
+  const searchParams = new URLSearchParams(location.search);
+  const requestedReturnTo = searchParams.get('returnTo');
+  const returnToPattern = /^\/dashboard(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$/i;
+  const returnTo = requestedReturnTo && returnToPattern.test(requestedReturnTo)
+    ? requestedReturnTo
+    : '/dashboard';
+
+  return (
+    <Routes>
+      {/* Student Feedback Portal */}
+      <Route
+        path="/"
+        element={
+          <StudentFeedbackPage
+            onNavigateFaculty={() => navigate('/login')}
+          />
+        }
       />
-    );
+      <Route
+        path="/student"
+        element={
+          <StudentFeedbackPage
+            onNavigateFaculty={() => navigate('/login')}
+          />
+        }
+      />
+      <Route
+        path="/student/login"
+        element={
+          <StudentFeedbackPage
+            onNavigateFaculty={() => navigate('/login')}
+          />
+        }
+      />
+      <Route
+        path="/student/feedback/:courseOfferingId"
+        element={
+          <StudentFeedbackPage
+            onNavigateFaculty={() => navigate('/login')}
+          />
+        }
+      />
+      <Route
+        path="/feedback"
+        element={<Navigate to="/" replace />}
+      />
+
+      {/* Faculty Authentication */}
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to={returnTo} replace />
+          ) : (
+            <LoginPage
+              onLoginSuccess={() => navigate(returnTo, { replace: true })}
+              onNavigateHome={() => navigate('/')}
+            />
+          )
+        }
+      />
+
+      {/* Faculty Analytics Dashboard (Protected Route) */}
+      <Route path="/dashboard" element={<DashboardRoute onNavigateHome={() => navigate('/')} />} />
+      <Route path="/dashboard/:offeringId" element={<DashboardRoute onNavigateHome={() => navigate('/')} />} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function DashboardRoute({ onNavigateHome }) {
+  const { isAuthenticated } = useAuth();
+  const { offeringId } = useParams();
+  const returnTo = offeringId ? `/dashboard/${offeringId}` : '/dashboard';
+
+  if (!isAuthenticated) {
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
   }
 
-  // Default: Anonymous Student Submission Flow
-  return (
-    <StudentFeedbackPage
-      onNavigateFaculty={() => setCurrentView('faculty')}
-    />
-  );
+  return <DashboardPage initialOfferingId={offeringId || ''} onNavigateHome={onNavigateHome} />;
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

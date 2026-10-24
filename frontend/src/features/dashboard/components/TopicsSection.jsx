@@ -1,32 +1,31 @@
 import React from 'react';
 
 const SENTIMENT_LABELS = {
-  positive: { label: 'Predominantly Positive', class: 'tag-pos' },
-  neutral: { label: 'Predominantly Neutral', class: 'tag-neu' },
-  negative: { label: 'Needs Attention (Mostly Negative)', class: 'tag-neg' },
+  positive: { label: 'Positive', class: 'tag-pos' },
+  neutral: { label: 'Neutral', class: 'tag-neu' },
+  negative: { label: 'Negative', class: 'tag-neg' },
 };
 
 export default function TopicsSection({
   topics = [],
+  commentInsightsAvailable = true,
+  emptyMessage = '',
   selectedTopicKey = null,
   onSelectTopic,
 }) {
-  if (!topics || topics.length === 0) {
-    return null;
-  }
-
   return (
-    <section className="dashboard-section level-3-section" aria-labelledby="topics-heading">
-      <div className="section-header-compact">
-        <h2 id="topics-heading" className="dashboard-section-title">
-          Recurring Topics in Student Feedback
-        </h2>
-        <span className="section-note">
-          Extracted themes from student comments. Click any topic to filter supporting evidence below.
-        </span>
-      </div>
-
-      <div className="topics-grid">
+      <section className="dashboard-section level-3-section" aria-labelledby="topics-heading">
+        <h2 id="topics-heading" className="dashboard-section-title">Common themes</h2>
+        {!commentInsightsAvailable || topics.length === 0 ? (
+          <p className="section-note" role="status">
+            {!commentInsightsAvailable
+              ? emptyMessage || 'Comment themes will appear after at least 5 comments are analyzed.'
+              : 'No recurring themes were detected in the analyzed comments.'}
+          </p>
+        ) : (
+        <>
+        <p className="section-note">{topics.length} themes · Select one to filter comments</p>
+        <div className="topics-grid">
         {topics.map((t) => {
           const isSelected = selectedTopicKey === t.topicKey;
           const sentInfo = SENTIMENT_LABELS[t.dominantSentiment] || {
@@ -36,6 +35,12 @@ export default function TopicsSection({
 
           const dist = t.sentimentDistribution || {};
           const totalMentions = t.mentionCount || 0;
+          const positive = dist.positive || 0;
+          const neutral = dist.neutral || 0;
+          const negative = dist.negative || 0;
+          const sentimentTotal = positive + neutral + negative;
+          const positivePct = sentimentTotal ? (positive / sentimentTotal) * 100 : 0;
+          const neutralPct = sentimentTotal ? (neutral / sentimentTotal) * 100 : 0;
 
           return (
             <button
@@ -50,23 +55,22 @@ export default function TopicsSection({
                 <span className="topic-count mono">{totalMentions} mentions</span>
               </div>
 
-              <div className="topic-sentiment-row">
-                <span className={`topic-sentiment-tag ${sentInfo.class}`}>
-                  {sentInfo.label}
-                </span>
-              </div>
-
-              {dist && (
-                <div className="topic-dist-micro mono">
-                  <span>+{dist.positive || 0}</span>
-                  <span>={dist.neutral || 0}</span>
-                  <span>-{dist.negative || 0}</span>
-                </div>
-              )}
+              <span className={`topic-sentiment-tag ${sentInfo.class}`}>{sentInfo.label}</span>
+              <span
+                className="topic-distribution-bar"
+                role="img"
+                aria-label={`${t.label} sentiment: ${positive} positive, ${neutral} neutral, ${negative} negative`}
+              >
+                <span className="topic-dist-positive" style={{ width: `${positivePct}%` }} />
+                <span className="topic-dist-neutral" style={{ width: `${neutralPct}%` }} />
+                <span className="topic-dist-negative" style={{ width: `${sentimentTotal ? 100 - positivePct - neutralPct : 0}%` }} />
+              </span>
             </button>
           );
         })}
-      </div>
-    </section>
+        </div>
+        </>
+        )}
+      </section>
   );
 }

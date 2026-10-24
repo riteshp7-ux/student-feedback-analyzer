@@ -9,8 +9,8 @@ The API contract establishes a clear boundary between the React frontend, the No
 ### Architectural Rules:
 1. **Single Entry Point**: The React frontend interacts solely with the Node.js/Express API gateway over HTTPS.
 2. **Direct Access Forbidden**: Direct communication from the browser to PostgreSQL or the Python NLP service is disallowed.
-3. **Internal Microservice**: The Python NLP service is an internal HTTP daemon bound to `127.0.0.1:8000` (or an isolated Docker network), unreachable from the public internet.
-4. **Versioning Prefix**: All public/external REST endpoints are prefixed with `/api/v1`.
+3. **Internal Microservice**: The Python NLP service is an internal HTTP daemon bound to `127.0.0.1:8000` (or a cloud provider's private internal network), unreachable from the public internet.
+4. **Versioning Prefix**: All public/external REST endpoints are prefixed with `/api/v1`; `GET /api/v1/meta` reports the API version and deployed build ID.
    - *Rationale*: For an application that will progress from prototype to production deployment, `/api/v1` provides a clean evolution path for API consumers and prevents breaking mobile or web clients during future schema iterations.
 
 ---
@@ -24,9 +24,10 @@ The application adheres to standard REST HTTP status codes:
 | **`200 OK`** | Success | Standard response for successful `GET`, `PUT`, or non-creation `POST` actions. |
 | **`201 Created`** | Resource Created | Feedback submission successfully received and persisted (`POST /api/v1/feedback`). |
 | **`400 Bad Request`** | Malformed Request | Malformed JSON body or syntactically invalid input parameters. |
-| **`401 Unauthorized`** | Authentication Missing/Invalid | Missing, expired, or invalid JWT bearer token on protected professor routes. |
-| **`403 Forbidden`** | Authorization Denied | Valid token, but the professor does not own the requested course offering. |
-| **`404 Not Found`** | Resource Not Found | Course offering, professor, or feedback record does not exist. |
+| **`401 Unauthorized`** | Authentication Missing/Invalid | Missing, expired, or invalid JWT bearer token on protected student or professor routes. |
+| **`403 Forbidden`** | Authorization Denied | Student not enrolled in requested offering (`STUDENT_NOT_ENROLLED`); or professor does not own the requested course offering (`ACCESS_DENIED`). |
+| **`409 Conflict`** | One-Submission / Idempotency Conflict | Student has already submitted feedback for this course offering (`ALREADY_SUBMITTED`); or idempotency key reused with different feedback. |
+| **`404 Not Found`** | Resource Not Found | Course offering, professor, student, or feedback record does not exist. |
 | **`422 Unprocessable Entity`** | Validation Error | Request is well-formed JSON, but fails business/schema validation (e.g., rating out of 1–5 range). |
 | **`429 Too Many Requests`** | Rate Limit Exceeded | Client exceeded the allowed submission threshold (anti-spam / anti-abuse). |
 | **`500 Internal Server Error`** | Server Failure | Unhandled exceptions or database connection failures (masks internal details). |
@@ -56,6 +57,8 @@ Every error response across the entire API adheres to a single, predictable stru
 * `INVALID_CREDENTIALS`: Email or password mismatch (`401`).
 * `AUTHENTICATION_REQUIRED`: Missing bearer token (`401`).
 * `ACCESS_DENIED`: Unauthorized access to another instructor's course (`403`).
+* `STUDENT_NOT_ENROLLED`: Authenticated student is not enrolled in the requested offering (`403`).
+* `ALREADY_SUBMITTED`: Authenticated student has already submitted feedback for this offering (`409`).
 * `RESOURCE_NOT_FOUND`: Offering or entity not found (`404`).
 * `RATE_LIMIT_EXCEEDED`: Too many requests (`429`).
 * `INTERNAL_ERROR`: Unexpected server error (`500`).
@@ -64,58 +67,100 @@ Every error response across the entire API adheres to a single, predictable stru
 
 ---
 
-## 4. Authentication & Authorization Matrix
+### 4. Authentication & Authorization Matrix
 
 ### Authentication Mechanism:
-* **Students**: No authentication required. Strict anonymity.
-* **Professors**: Standard email/password authentication generating an industry-standard signed JWT bearer token (`Authorization: Bearer <token>`). The JWT payload contains `{ "professorId": "uuid", "email": "string" }` with a 24-hour expiration.
+* **Students**: Standard university student email/password authentication via `POST /api/v1/auth/student/login` generating a signed JWT bearer token (`Authorization: Bearer <token>`). The JWT payload contains `{ "studentId": "uuid", "email": "string", "role": "student" }` with a 24-hour expiration.
+* **Professors**: Standard email/password authentication via `POST /api/v1/auth/login` generating a signed JWT bearer token (`Authorization: Bearer <token>`). The JWT payload contains `{ "professorId": "uuid", "email": "string", "role": "faculty" }` with a 24-hour expiration.
 
 ### Authorization Matrix:
 
 | Endpoint | Role: Student | Role: Professor | Authorization Condition |
 | :--- | :---: | :---: | :--- |
+| `POST /api/v1/auth/student/login` | Allowed | Allowed | Public student authentication endpoint. |
+| `GET /api/v1/student/me` | Allowed | Denied (`403`) | Requires authenticated student token. |
+| `GET /api/v1/student/offerings` | Allowed | Denied (`403`) | Returns only offerings where student is enrolled, with submission status. |
+| `POST /api/v1/feedback` | Allowed | Denied (`403`) | Requires authenticated student token; verifies enrollment (`403`) and one-submission rule (`409`). |
 | `GET /api/v1/course-offerings` | Allowed | Allowed | Public active offerings list. |
-| `POST /api/v1/feedback` | Allowed | Allowed | Public; anonymous submission to active offering. |
-| `POST /api/v1/auth/login` | N/A | Allowed | Public authentication endpoint. |
-| `GET /api/v1/professor/offerings` | Denied (`401`) | Allowed | Returns offerings where `professor_id == token.professorId`. |
-| `GET /api/v1/dashboard/:courseOfferingId` | Denied (`401`) | Allowed | Allowed ONLY if offering belongs to authenticated professor (`403` otherwise). |
-| `GET /api/v1/feedback/:courseOfferingId` | Denied (`401`) | Allowed | Allowed ONLY if offering belongs to authenticated professor (`403` otherwise). |
+| `POST /api/v1/auth/login` | Allowed | Allowed | Public faculty authentication endpoint. |
+| `GET /api/v1/auth/me` | Denied (`403`) | Allowed | Requires authenticated faculty token. |
+| `GET /api/v1/professor/offerings` | Denied (`403`) | Allowed | Returns offerings where `professor_id == token.professorId`. |
+| `GET /api/v1/dashboard/:courseOfferingId` | Denied (`403`) | Allowed | Allowed ONLY if offering belongs to authenticated professor (`403` otherwise). |
+| `GET /api/v1/feedback/:courseOfferingId` | Denied (`403`) | Allowed | Allowed ONLY if offering belongs to authenticated professor (`403` otherwise). |
 | `GET /health` | Allowed | Allowed | System monitoring health check. |
 
 ---
 
-## 5. Public / Student Endpoints
+## 5. Student Endpoints
 
-### 5.1 `GET /api/v1/course-offerings`
-* **Purpose**: Fetches active course offerings so a student can select their course context.
+### 5.1 `POST /api/v1/auth/student/login`
+* **Purpose**: Student authentication using application-managed student accounts.
 * **Auth**: None (Public).
-* **Query Parameters**: None.
+* **Request Schema**:
+```json
+{
+  "email": "aarav@student.university.edu",
+  "password": "SecureStudent123!"
+}
+```
+* **Responses**:
+  - `200 OK`: Returns JWT token and student profile:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "student": {
+    "id": "stu-1111-2222-3333-4444",
+    "email": "aarav@student.university.edu",
+    "fullName": "Aarav Sharma",
+    "studentIdNumber": "STU2026001",
+    "departmentId": "dept-1111-2222-3333-4444"
+  }
+}
+```
+  - `401 Unauthorized`: Invalid email or password (`INVALID_CREDENTIALS`).
+  - `400 Bad Request`: Missing email or password.
+
+### 5.2 `GET /api/v1/student/me`
+* **Purpose**: Fetches the authenticated student's profile.
+* **Auth**: Bearer token required (`role: student`).
+* **Response (200 OK)**: Returns `{ "student": { "id", "email", "fullName", "studentIdNumber", "departmentId", "departmentCode", "departmentName" } }`.
+
+### 5.3 `GET /api/v1/student/offerings`
+* **Purpose**: Lists only the course offerings that the authenticated student is currently enrolled in, along with whether the student has already submitted feedback for each offering.
+* **Auth**: Bearer token required (`role: student`).
 * **Response (200 OK)**:
 ```json
-[
-  {
-    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "courseCode": "CS301",
-    "courseTitle": "Database Management Systems",
-    "term": "Fall 2026",
-    "instructorName": "Dr. Ramesh Sharma"
-  },
-  {
-    "id": "a98c7654-b234-4567-c890-123456789abc",
-    "courseCode": "CS201",
-    "courseTitle": "Data Structures & Algorithms",
-    "term": "Fall 2026",
-    "instructorName": "Prof. Anita Desai"
-  }
-]
+{
+  "offerings": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "courseId": "cs-1111-2222-3333-4444",
+      "courseCode": "CS301",
+      "courseTitle": "Database Management Systems",
+      "term": "Semester 1 2026-27",
+      "departmentId": "dept-1111-2222-3333-4444",
+      "departmentName": "Computer Science & Engineering",
+      "professorName": "Dr. Ramesh Sharma",
+      "hasSubmitted": false
+    }
+  ]
+}
 ```
 
----
-
-### 5.2 `POST /api/v1/feedback`
-* **Purpose**: Submits anonymous feedback for an active course offering.
+### 5.4 `GET /api/v1/course-offerings`
+* **Purpose**: Public catalog listing of all active course offerings.
 * **Auth**: None (Public).
-* **Rate Limit**: 10 submissions per minute per IP address.
+
+### 5.5 `POST /api/v1/feedback`
+* **Purpose**: Submits anonymous feedback for an active course offering.
+* **Auth**: Bearer token required (`role: student`).
+* **Enforcement**:
+  1. Authenticates student via JWT token (`401 UNAUTHORIZED` if missing/invalid).
+  2. Verifies student is actively enrolled in `courseOfferingId` (`403 STUDENT_NOT_ENROLLED` if not enrolled).
+  3. Verifies student has not yet submitted feedback for this course offering via `feedback_submission_control` (`409 ALREADY_SUBMITTED` if duplicate).
+  4. Inserts anonymous feedback record into `feedback_submissions` without any student identity column (Level 1 practical anonymity).
+  5. Schedules asynchronous NLP analysis if a comment was provided.
+* **Rate Limit**: 30 submissions per minute per IP address.
 
 #### Request Schema & Validation:
 ```json
@@ -128,7 +173,8 @@ Every error response across the entire API adheres to a single, predictable stru
     "engagement": 4,
     "practicalExamples": 2
   },
-  "comment": "The concepts are explained clearly, but we need more practical code walkthroughs."
+  "comment": "The concepts are explained clearly, but we need more practical code walkthroughs.",
+  "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
@@ -141,7 +187,8 @@ Every error response across the entire API adheres to a single, predictable stru
     - `engagement`: Integer $\in [1, 5]$.
     - `practicalExamples`: Integer $\in [1, 5]$.
   - `comment`: Optional string. Can be null, omitted, or string with $\le 2000$ characters. Whitespace is trimmed.
-  - Unknown properties in `ratings` or root body are rejected with `422 Unprocessable Entity`.
+  - `idempotencyKey`: Optional UUID. Reusing a key with the same payload returns the original submission; reusing it with a different payload returns `409 Conflict`.
+  - Injected identity attributes (e.g. `studentId`, `email`, `studentName`) or unrecognized fields are rejected with `422 Unprocessable Entity`.
 
 #### Responses:
 * **Success (`201 Created`)**:
@@ -151,7 +198,12 @@ Every error response across the entire API adheres to a single, predictable stru
   "message": "Feedback submitted successfully."
 }
 ```
-*(No internal submission ID is returned to the student client, maintaining strict anonymity).*
+*(No internal submission ID or student identity is returned to the student client.)*
+
+If a comment was included, it is accepted with `analysis_status = pending`; NLP analysis runs asynchronously. Dashboard response totals count accepted ratings, while sentiment uses only analyzed comments. Pending/failed analyses are not counted as negative sentiment.
+
+### 5.3 `GET /api/v1/meta`
+Returns `{ "apiVersion": "v1", "buildId": "<deployed build identifier>" }` for runtime compatibility checks.
 
 * **Validation Failure (`422 Unprocessable Entity`)**:
 ```json
@@ -226,7 +278,7 @@ Every error response across the entire API adheres to a single, predictable stru
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "courseCode": "CS301",
     "courseTitle": "Database Management Systems",
-    "term": "Fall 2026",
+    "term": "Semester 1 2026-27",
     "isActive": true,
     "submissionCount": 42
   }
@@ -241,6 +293,7 @@ Every error response across the entire API adheres to a single, predictable stru
 
 #### Behavior on Small Sample Size ($N < 5$):
 If total submissions for the offering is $< 5$, the endpoint returns `privacyThresholdMet: false` and suppresses granular topic breakdowns and comments to prevent de-anonymization.
+Rating aggregates unlock at 5 total submissions. Comment sentiment requires 5 analyzed comments, and each displayed topic requires at least 5 mentions.
 
 #### Response (`200 OK` — Privacy Threshold Met, $N \ge 5$):
 ```json
@@ -249,7 +302,7 @@ If total submissions for the offering is $< 5$, the endpoint returns `privacyThr
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "courseCode": "CS301",
     "courseTitle": "Database Management Systems",
-    "term": "Fall 2026"
+    "term": "Semester 1 2026-27"
   },
   "privacyThresholdMet": true,
   "overall": {
@@ -338,7 +391,7 @@ If total submissions for the offering is $< 5$, the endpoint returns `privacyThr
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "courseCode": "CS301",
     "courseTitle": "Database Management Systems",
-    "term": "Fall 2026"
+    "term": "Semester 1 2026-27"
   },
   "privacyThresholdMet": false,
   "overall": {
@@ -367,7 +420,7 @@ If total submissions for the offering is $< 5$, the endpoint returns `privacyThr
 * `sentiment`: Optional string filter (`positive`, `neutral`, `negative`).
 
 #### Privacy Guard:
-If total responses for the offering $< 5$, returns an empty array with an informational notice.
+Written comments are returned only when the offering has at least 5 submissions and the active filters match at least 5 comments. Otherwise the response is empty with `privacySuppressed: true` and a generic notice. Individual ratings and exact submission dates are never returned; comments include month-level dates only.
 
 #### Response (`200 OK`):
 ```json
@@ -391,12 +444,12 @@ If total responses for the offering $< 5$, returns an empty array with an inform
       },
       "sentiment": "neutral",
       "topics": ["teaching_clarity", "practical_examples"],
-      "submittedDate": "2026-10-09"
+      "submittedMonth": "Oct 2026"
     }
   ]
 }
 ```
-*(Notice: The date is truncated to `YYYY-MM-DD` rather than an exact millisecond timestamp to prevent temporal de-anonymization).*
+*(Notice: Only month-level granularity (`Mon YYYY`) is exposed — never day or time — and results are ordered by month plus a stable id, so exact submission timestamps and intra-month ordering are not observable. Per-comment operational retry counters are also withheld; analysis lifecycle is only aggregated at dashboard level).*
 
 ---
 
@@ -509,7 +562,7 @@ Student Submit ---> Express validates & saves submission (analysis_status = 'pen
 | Method | Endpoint | Purpose | Auth | Request Body | Response (Success) |
 | :--- | :--- | :--- | :---: | :--- | :--- |
 | `GET` | `/api/v1/course-offerings` | List active courses for student selection | None | None | `200 OK` `CourseOffering[]` |
-| `POST` | `/api/v1/feedback` | Submit anonymous student feedback | None | `{ courseOfferingId, ratings, comment }` | `201 Created` `{ success: true }` |
+| `POST` | `/api/v1/feedback` | Submit anonymous student feedback | None | `{ courseOfferingId, eligibilityToken, ratings, comment }` | `201 Created` `{ success: true }` |
 | `POST` | `/api/v1/auth/login` | Authenticate professor | None | `{ email, password }` | `200 OK` `{ token, professor }` |
 | `GET` | `/api/v1/professor/offerings` | List assigned courses for professor | Bearer JWT | None | `200 OK` `ProfessorOffering[]` |
 | `GET` | `/api/v1/dashboard/:courseOfferingId` | Get aggregated dashboard metrics (Levels 1–3) | Bearer JWT | None | `200 OK` `DashboardData` |

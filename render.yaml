@@ -1,5 +1,5 @@
 services:
-  # 1. Frontend - Static Single-Page Application
+  # 1. Frontend - Static Single-Page Application (Render Free Tier)
   - type: static
     name: feedback-analyzer-frontend
     env: static
@@ -10,43 +10,53 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Set to your backend's public API URL: https://<your-backend-service>.onrender.com/api/v1
       - key: VITE_API_BASE_URL
-        value: https://feedback-analyzer-api.onrender.com/api/v1
+        sync: false
 
-  # 2. Backend - Express API Gateway & Aggregation Service
+  # 2. Backend - Express API Gateway & Aggregation Service (Render Free Web Service)
   - type: web
     name: feedback-analyzer-api
     env: node
     plan: free
     buildCommand: npm --prefix backend install
-    startCommand: node backend/src/server.js
+    startCommand: node backend/src/db/migrate.js && node backend/src/server.js
     healthCheckPath: /health/live
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      # External Neon PostgreSQL connection string (e.g. postgresql://user:pass@ep-xxxx.neon.tech/neondb?sslmode=require)
       - key: DATABASE_URL
-        fromDatabase:
-          name: feedback-analyzer-db
-          property: connectionString
+        sync: false
+      # Public HTTPS URL of your deployed NLP web service: https://<your-nlp-service>.onrender.com
       - key: NLP_SERVICE_URL
-        value: http://feedback-analyzer-nlp:8000
+        sync: false
+      # 10s budget allows the free NLP service to wake up from idle sleep without dropping requests
       - key: NLP_TIMEOUT_MS
-        value: 2000
+        value: 10000
+      # 1 trusted hop so Render's edge proxy forwards real client IPs for rate limiting
+      - key: TRUST_PROXY_HOPS
+        value: 1
+      # Private shared secret: must match NLP_SERVICE_TOKEN on the NLP service. Never expose to frontend.
+      - key: NLP_SERVICE_TOKEN
+        sync: false
+      # Public HTTPS URL of your deployed frontend static site: https://<your-frontend-service>.onrender.com
       - key: FRONTEND_URL
-        value: https://feedback-analyzer-frontend.onrender.com
+        sync: false
+      # Automatically generated secure 256-bit cryptographic secret for signing JWTs
       - key: JWT_SECRET
         generateValue: true
 
-  # 3. NLP Analytical Subsystem - Isolated In-Memory Microservice
-  # Bound strictly to Render private internal network (no public IP / internet access)
-  - type: pserv
+  # 3. NLP Analytical Subsystem - Isolated Text Inference (Render Free Web Service)
+  - type: web
     name: feedback-analyzer-nlp
     env: python
     plan: free
     buildCommand: pip install -r nlp/requirements-prod.txt
     startCommand: uvicorn nlp.src.service:app --host 0.0.0.0 --port 8000
+    healthCheckPath: /health
     envVars:
       - key: NLP_HOST
         value: 0.0.0.0
@@ -54,11 +64,6 @@ services:
         value: 8000
       - key: NLP_ARTIFACT_DIR
         value: nlp/artifacts/v1.0.0
-
-# 4. Relational Database - PostgreSQL 16
-databases:
-  - name: feedback-analyzer-db
-    databaseName: feedback_analyzer
-    user: feedback_user
-    plan: free
-    postgresMajorVersion: 16
+      # Private shared secret: must match NLP_SERVICE_TOKEN on the backend API.
+      - key: NLP_SERVICE_TOKEN
+        sync: false

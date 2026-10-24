@@ -16,10 +16,10 @@
 
 The application requires only four dedicated screens:
 
-1. **Student Submission Screen (`/`)**:
-   - Single-page responsive form for course selection, 5 structured ratings, optional written comment, and submission.
+1. **Student Submission Screen (`/` or `/student`)**:
+   - Single-page responsive experience: student authentication prompt (if unauthenticated), authenticated student bar, enrolled course offerings selector, 5 structured ratings, optional written comment, and submission.
 2. **Student Confirmation Screen (State on `/`)**:
-   - In-place terminal state acknowledging receipt and thanking the student for their anonymous contribution.
+   - In-place terminal state acknowledging receipt, explaining that the evaluation is final, and thanking the student for their contribution, anonymous to professors.
 3. **Professor Login Screen (`/login`)**:
    - Focused, clean institutional login for faculty credentials.
 4. **Professor Analytics Dashboard (`/dashboard` & `/dashboard/:offeringId`)**:
@@ -30,13 +30,20 @@ The application requires only four dedicated screens:
 ## 3. Student Journey & User Flow
 
 ```text
-       [ Student lands on / ]
+       [ Student lands on / or /student ]
                  |
                  v
    +----------------------------+
-   |  Select Course Offering    | <--- Pre-selected if ?offeringId= in URL
+   |   Student Authentication   | <--- Required (login card shown if unauthenticated)
    +----------------------------+
                  |
+                 v
+   +----------------------------+
+   | Select Enrolled Course     | <--- Only student's enrolled courses shown
+   +----------------------------+
+                 |
+                 +-----> [ Already Submitted? ] ---> Show "Feedback Already Submitted" badge
+                 |                                    (Cannot edit or resubmit)
                  v
    +----------------------------+
    |   5 Structured Ratings     | <--- 1 to 5 segmented numeric buttons
@@ -57,7 +64,7 @@ The application requires only four dedicated screens:
       [Pass]                [Fail] ---> Highlight missing rating inline
         |
         v
-   [ Submitting State ] ---> Disable button, label "Submitting..."
+   [ Submitting State ] ---> Disable button, label "Submitting Feedback..."
         |
     [ POST /api/v1/feedback ]
     /                       \
@@ -74,11 +81,13 @@ The application requires only four dedicated screens:
 ### Detailed Steps:
 1. **Entry & Course Selection**:
    - The student arrives at a clean, single-column page.
-   - A single prominent dropdown displays active course offerings: `CS301 — Database Management Systems (Fall 2026) — Dr. Sharma`.
+   - Course selection is progressive: year of study → semester → student’s department → course → professor/section when multiple classes match.
+   - Program semesters 1–2 belong to Year 1, 3–4 to Year 2, 5–6 to Year 3, and 7–8 to Year 4. The academic session is shown separately.
+   - Only semesters with an active feedback window appear. The selected class context confirms year, course, semester, student department, teaching department when different, professor, and section before ratings begin.
    - If accessed via course QR code/link (`/?offeringId=3fa8...`), the dropdown is automatically set to that offering.
 2. **Anonymity Communication**:
    - A quiet, factual notice directly below the header states:
-     > *"Submissions are completely anonymous. No student ID, name, or device IP is stored."*
+     > *"Professors cannot see who submitted. A restricted eligibility record is used to prevent repeat submissions; administrators may be able to infer eligibility. Avoid identifying yourself in comments."*
 3. **Rating Interaction**:
    - 5 pedagogical dimensions presented in logical instructional sequence:
      1. Teaching Clarity
@@ -98,7 +107,7 @@ The application requires only four dedicated screens:
    - If valid, the button enters a disabled *"Submitting..."* state.
    - Upon `201 Created`, the form transitions smoothly to a calm confirmation state:
      - Header: *"Feedback Submitted"*
-     - Body: *"Thank you for your feedback. Your submission has been recorded anonymously."*
+     - Body: *"Thank you for your feedback. Your response was recorded without your identity being shown to professors."*
      - No further prompts or clutter.
 
 ---
@@ -153,7 +162,7 @@ The dashboard is structured vertically to match human cognitive processing:
 
 ```text
 +---------------------------------------------------------------------------------+
-| TOP BAR: [Course Code & Title] | [Term: Fall 2026] | [Switch Offering Dropdown] |
+| TOP BAR: [Course Code & Title] | [Term: Semester 1 2026-27] | [Switch Offering Dropdown] |
 +---------------------------------------------------------------------------------+
 | LEVEL 1: OVERALL PULSE                                                          |
 | +-------------------------+ +-------------------------+ +---------------------+ |
@@ -228,8 +237,10 @@ The dashboard handles edge cases transparently:
 
 | Condition | UX Presentation |
 | :--- | :--- |
-| **$N = 0$ (No Submissions)** | Clean empty state: *"No feedback has been submitted for this course offering yet."* Displays offering link/QR code. |
-| **$1 \le N < 5$ (Low Sample Size)** | Privacy card: *"4 responses received. Aggregate metrics and comments will unlock once 5 or more students participate to ensure complete anonymity."* |
+| **$N = 0$ (No Submissions)** | Clean empty state: *"No feedback has been submitted for this course offering yet."* |
+| **$1 \le N < 5$ (Low Sample Size)** | Rating aggregates and written comments stay hidden until 5 responses. |
+| **Fewer than 5 analyzed comments** | Show ratings when eligible, but keep comment sentiment and themes hidden until 5 comments are analyzed. |
+| **Fewer than 5 comments match evidence filters** | Keep comment text hidden and explain that more matching comments are needed. |
 | **No Written Comments** | Level 1 & 2 display fully. Level 3 & 4 display an informative notice: *"All 42 respondents submitted numerical ratings without written comments."* |
 | **NLP Service Offline / Failed** | Level 1 & 2 display fully. Level 3 displays: *"Topic analysis is temporarily unavailable. Raw comments remain accessible below."* Level 4 displays comments without topic tags. |
 | **Filtered Search Returns 0** | *"No comments match the selected filter."* Includes a prominent *"Reset filters"* button. |
@@ -326,5 +337,4 @@ The dashboard handles edge cases transparently:
 2. **Evidence Page Size**: Is 15 comments per page with Previous/Next pagination approved for Level 4?
 3. **Direct Offering URL Support**: Is the `/?offeringId=<uuid>` direct deep-linking pattern approved for student QR codes/syllabi?
 
----
-*(Stopping here as instructed. Awaiting architectural review and approval of UX architecture and user flows before proceeding to visual styling or implementation.)*
+**Current-behavior note (10 Oct 2026):** Students choose year, department and semester, then course; professor/section appears only when multiple offerings match. A one-time token is required after course selection. The token is scoped to the exact semester/section offering and issued from a registrar roster; it is not stored on the feedback record or exposed to faculty. The token UI should explain where to obtain it and that it can be used once. See [API_CONTRACT.md](API_CONTRACT.md), [DATA_MODEL.md](DATA_MODEL.md), and [COURSE_CATALOG_SETUP.md](COURSE_CATALOG_SETUP.md).

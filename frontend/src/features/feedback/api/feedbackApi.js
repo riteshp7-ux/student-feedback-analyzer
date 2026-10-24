@@ -1,4 +1,5 @@
 import { apiClient } from '../../../shared/api/client';
+import { validateCatalogOfferings } from './catalogContract';
 
 /**
  * Fetches all active course offerings available for student feedback
@@ -6,10 +7,42 @@ import { apiClient } from '../../../shared/api/client';
  */
 export async function fetchCourseOfferings() {
   const response = await apiClient('/course-offerings');
-  if (Array.isArray(response)) {
-    return response;
+  const offerings = Array.isArray(response) ? response : response?.data;
+  if (!validateCatalogOfferings(offerings)) {
+    const error = new Error('The course service returned an older or incomplete catalog. Please retry; if it continues, contact support to update the service.');
+    error.code = 'INCOMPATIBLE_CATALOG';
+    throw error;
   }
-  return response?.data || [];
+  return offerings;
+}
+
+/**
+ * Authenticates a student via email and password
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{ token: string, student: object }>}
+ */
+export async function loginStudent(loginId, password) {
+  return await apiClient('/auth/student/login', {
+    method: 'POST',
+    body: JSON.stringify({ loginId, password }),
+  });
+}
+
+/**
+ * Retrieves authenticated student profile
+ * @returns {Promise<{ student: object }>}
+ */
+export async function fetchStudentMe() {
+  return await apiClient('/student/me');
+}
+
+/**
+ * Fetches enrolled course offerings for authenticated student
+ * @returns {Promise<{ offerings: Array<object> }>}
+ */
+export async function fetchStudentOfferings() {
+  return await apiClient('/student/offerings');
 }
 
 /**
@@ -23,6 +56,7 @@ export async function fetchCourseOfferings() {
  * @param {number} payload.ratings.engagement
  * @param {number} payload.ratings.practicalExamples
  * @param {string|null} payload.comment
+ * @param {string} [payload.idempotencyKey]
  * @returns {Promise<{ id: string, message?: string }>}
  */
 export async function submitStudentFeedback(payload) {

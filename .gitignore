@@ -34,3 +34,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+
+# Locally generated roster exports and credentials
+private-output/
+# All environment files, except the safe template
+.env*
+!.env.example
+
+# Generated Repomix output
+repomix-output.xml
+
+# Local tooling and temporary files
+.freebuff/

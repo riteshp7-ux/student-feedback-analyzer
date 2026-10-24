@@ -16,9 +16,13 @@ export default function RatingGroup({
   onChange,
   error,
 }) {
+  const describedBy = [description && `${id}-desc`, error && `${id}-error`]
+    .filter(Boolean)
+    .join(' ') || undefined;
+
   return (
-    <fieldset className={`rating-group ${error ? 'rating-group-invalid' : ''}`} aria-describedby={`${id}-desc ${id}-error`}>
-      <legend className="rating-legend">
+    <fieldset className={`rating-group ${error ? 'rating-group-invalid' : ''}`} aria-describedby={describedBy}>
+      <legend id={`${id}-legend`} className="rating-legend">
         <span className="rating-title">{title}</span>
         <span className="required-indicator" aria-hidden="true"> *</span>
       </legend>
@@ -48,9 +52,9 @@ export default function RatingGroup({
                 onChange={() => onChange(level.value)}
                 className="rating-radio-input"
                 aria-required="true"
+                aria-label={level.label}
               />
               <span className="rating-number">{level.value}</span>
-              <span className="rating-label-text">{level.label.split(' - ')[1]}</span>
             </label>
           );
         })}

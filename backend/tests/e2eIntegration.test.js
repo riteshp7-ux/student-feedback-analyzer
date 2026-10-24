@@ -42,6 +42,8 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
   let profDesai;
   let sharmaToken;
   let desaiToken;
+  let studentBToken;
+  let studentCToken;
 
   let cs301OfferingId; // Owned by Sharma, N >= 5
   let cs201OfferingId; // Owned by Desai, N = 2 (< 5)
@@ -97,7 +99,7 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
       SELECT o.id, c.code, o.professor_id
       FROM course_offerings o
       JOIN courses c ON c.id = o.course_id
-      WHERE o.term = 'Fall 2026';
+      WHERE o.term = 'Semester 1 2026-27';
     `);
 
     cs301OfferingId = offerings.find(o => o.code === 'CS301').id;
@@ -112,6 +114,21 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     );
     desaiToken = jwt.sign(
       { professorId: profDesai.id, email: profDesai.email },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    const { rows: stuRows } = await query('SELECT id, email FROM students;');
+    const stuB = stuRows.find(s => s.email === 'diya@student.university.edu');
+    const stuC = stuRows.find(s => s.email === 'rohan@student.university.edu');
+
+    studentBToken = jwt.sign(
+      { studentId: stuB.id, email: stuB.email, role: 'student' },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    studentCToken = jwt.sign(
+      { studentId: stuC.id, email: stuC.email, role: 'student' },
       env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -135,6 +152,7 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     const res = await request(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${studentBToken}` },
       body: {
         courseOfferingId: cs301OfferingId,
         ratings: {
@@ -160,8 +178,8 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
 
     // Verify submission status in database
     const { rows: afterRows } = await query(
-      'SELECT id, analysis_status, comment_text FROM feedback_submissions WHERE offering_id = $1 ORDER BY created_at DESC LIMIT 1;',
-      [cs301OfferingId]
+      'SELECT id, analysis_status, comment_text FROM feedback_submissions WHERE offering_id = $1 AND comment_text = $2 LIMIT 1;',
+      [cs301OfferingId, 'Brilliant deep dive into indexing and query optimization!']
     );
     assert.equal(afterRows.length, 1);
     const latestSubmission = afterRows[0];
@@ -198,9 +216,27 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
       res.end('{}');
     };
 
+    // Use Student A (enrolled in CS201) or a dedicated test student
+    // Let's create an enrolled student for CS301 for Flow 2
+    const { rows: stu2 } = await query(`
+      INSERT INTO students (email, password_hash, student_id_number, full_name)
+      VALUES ('flow2_stu@student.university.edu', 'hash', 'STU_F2', 'Flow Two Student')
+      RETURNING id, email;
+    `);
+    await query(`
+      INSERT INTO course_enrollments (student_id, course_offering_id)
+      VALUES ($1, $2);
+    `, [stu2[0].id, cs301OfferingId]);
+    const flow2Token = jwt.sign(
+      { studentId: stu2[0].id, email: stu2[0].email, role: 'student' },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     const res = await request(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${flow2Token}` },
       body: {
         courseOfferingId: cs301OfferingId,
         ratings: {
@@ -253,6 +289,7 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     const res = await request(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${studentBToken}` },
       body: {
         courseOfferingId: cs301OfferingId,
         studentId: 'STU123456',
@@ -322,7 +359,7 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     // Verify Offering Context
     assert.equal(d.courseOffering.courseCode, 'CS301');
     assert.equal(d.courseOffering.courseTitle, 'Database Management Systems');
-    assert.equal(d.courseOffering.term, 'Fall 2026');
+    assert.equal(d.courseOffering.term, 'Semester 1 2026-27');
     assert.equal(d.privacyThresholdMet, true);
 
     // Verify Level 1: Overall
@@ -382,9 +419,11 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     for (const c of resAll.body.comments) {
       assert.ok(typeof c.id === 'string');
       assert.ok(typeof c.commentText === 'string');
-      // Date must be formatted as YYYY-MM-DD (temporal privacy)
-      assert.match(c.submittedDate, /^\d{4}-\d{2}-\d{2}$/);
-      assert.ok(!c.submittedDate.includes('T'), 'Exact timestamp must not be leaked');
+      // Privacy contract: only month granularity ("Mon YYYY") is exposed —
+      // never day-precision dates, exact timestamps, or per-comment retry counters.
+      assert.match(c.submittedMonth, /^[A-Z][a-z]{2} \d{4}$/);
+      assert.equal(c.submittedDate, undefined, 'Day-precision submittedDate must not be exposed');
+      assert.equal(c.analysisAttempts, undefined, 'Per-comment retry counters must not be exposed');
     }
 
     // 2. Fetch filtered by topic
@@ -482,10 +521,27 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
       res.end(JSON.stringify({ error: 'Service Unavailable' }));
     };
 
+    // Create enrolled student for CS301 in Flow 9
+    const { rows: stu9 } = await query(`
+      INSERT INTO students (email, password_hash, student_id_number, full_name)
+      VALUES ('flow9_stu@student.university.edu', 'hash', 'STU_F9', 'Flow Nine Student')
+      RETURNING id, email;
+    `);
+    await query(`
+      INSERT INTO course_enrollments (student_id, course_offering_id)
+      VALUES ($1, $2);
+    `, [stu9[0].id, cs301OfferingId]);
+    const flow9Token = jwt.sign(
+      { studentId: stu9[0].id, email: stu9[0].email, role: 'student' },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     // Student submits feedback during NLP outage
     const res = await request(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${flow9Token}` },
       body: {
         courseOfferingId: cs301OfferingId,
         ratings: {
@@ -549,4 +605,14 @@ test.describe('Stage 20: Full-System Integration & End-to-End Verification', () 
     assert.equal(recoveredSentiment.length, 1);
     assert.equal(recoveredSentiment[0].label, 'neutral');
   });
+
+  test.after(async () => {
+    if (mockNlpServer) {
+      await new Promise((resolve) => mockNlpServer.close(resolve));
+    }
+    if (originalNlpUrl) {
+      env.NLP_SERVICE_URL = originalNlpUrl;
+    }
+  });
 });
+

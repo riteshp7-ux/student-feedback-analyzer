@@ -12,17 +12,10 @@ export default function PerformanceSection({ performance = [] }) {
   }
 
   return (
-    <section className="dashboard-section level-2-section" aria-labelledby="performance-heading">
-      <div className="section-header-compact">
-        <h2 id="performance-heading" className="dashboard-section-title">
-          Teaching Performance Dimensions
-        </h2>
-        <span className="section-note">
-          Mean ratings from student evaluations (Scale 1.0 – 5.0)
-        </span>
-      </div>
-
-      <div className="performance-list">
+      <section className="dashboard-section level-2-section" aria-labelledby="performance-heading">
+        <h2 id="performance-heading" className="dashboard-section-title">Teaching performance</h2>
+        <p className="section-note">Average score by teaching area · {performance.length} areas</p>
+        <div className="performance-list">
         {performance.map((dim) => {
           const score = Number(dim.averageScore);
           const percent = Math.min(Math.max((score / 5.0) * 100, 0), 100);
@@ -62,7 +55,7 @@ export default function PerformanceSection({ performance = [] }) {
             </div>
           );
         })}
-      </div>
-    </section>
+        </div>
+      </section>
   );
 }

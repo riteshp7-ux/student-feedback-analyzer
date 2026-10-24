@@ -18,7 +18,7 @@ The React application delivers two distinct experiences: an anonymous, distracti
 * **Aggregation & Statistical Calculation**: The frontend never computes averages, percentiles, or dominant sentiment. It consumes pre-computed application-level metrics from the backend.
 * **NLP Inference**: No client-side tokenization, sentiment scoring, or keyword parsing.
 * **Authoritative Validation**: Client-side validation is purely for user convenience; the server remains the sole authority.
-* **Persistence & Credentials**: No direct database access, no database credentials, and no persistent tracking of student identity.
+* **Persistence & Credentials**: No direct database access or database credentials. Student submissions use a one-time course token; professors see no identity, while a separate restricted backend eligibility table stores an offering-scoped keyed roster pseudonym.
 
 ---
 
@@ -72,12 +72,15 @@ The application uses standard client-side routing with clean role separation:
 
 | Route | User Role | Auth Required | Purpose | Primary Data Loaded |
 | :--- | :--- | :---: | :--- | :--- |
-| `/` | Student / Public | No | Anonymous student feedback submission form. | `GET /api/v1/course-offerings` |
-| `/login` | Professor | No | Instructor authentication screen. | None |
+| `/` | Student | Yes (prompted if unauth) | Student feedback portal and course offering submission. | `GET /api/v1/student/me`, `GET /api/v1/student/offerings` |
+| `/student` | Student | Yes | Student feedback portal (alias). | `GET /api/v1/student/me`, `GET /api/v1/student/offerings` |
+| `/student/login` | Student | No | Student authentication screen (embedded card or dedicated route). | None (`POST /api/v1/auth/student/login`) |
+| `/student/feedback/:courseOfferingId` | Student | Yes | Direct course offering feedback evaluation form. | `GET /api/v1/student/offerings` |
+| `/login` | Professor | No | Instructor authentication screen. | None (`POST /api/v1/auth/login`) |
 | `/dashboard` | Professor | Yes | Assigned offerings selection & dashboard entry. | `GET /api/v1/professor/offerings` |
 | `/dashboard/:offeringId` | Professor | Yes | Course offering analytics & evidence explorer. | `GET /api/v1/dashboard/:offeringId`, `GET /api/v1/feedback/:offeringId` |
 
-*Note*: If a student visits `/?offeringId=3fa8...`, the course dropdown automatically pre-selects that offering, enabling direct QR code or syllabus links.
+*Note*: If an authenticated student visits `/?offeringId=3fa8...` or `/student/feedback/:courseOfferingId`, the course dropdown automatically pre-selects that enrolled offering, enabling direct syllabus links.
 
 ---
 
@@ -180,7 +183,7 @@ stateDiagram-v2
 ### Submission Safeguards:
 1. **Duplicate Prevention**: As soon as the user clicks "Submit", the submit button is disabled and its label switches to *"Submitting..."*.
 2. **Network Failure Handling**: If the network fails, the entered text and ratings remain preserved in the form state, accompanied by a clear error message: *"Unable to submit feedback. Please check your connection and try again."*
-3. **Double Submission Guard**: After `201 Created`, the form unmounts and renders a calm, final confirmation screen: *"Thank you. Your feedback has been submitted anonymously."* There is no "Submit another" loop that encourages spam.
+3. **Double Submission Guard**: After `201 Created`, the form unmounts and renders a calm confirmation that the response was received and is anonymous to professors. The one-time eligibility token is consumed atomically with the submission.
 
 ---
 

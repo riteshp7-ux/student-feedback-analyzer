@@ -86,8 +86,9 @@ npm --prefix backend run db:migrate
 * Migrations are strictly non-destructive.
 
 ### Seed / Demo Data Policy
-* **Production Policy**: `db:seed` contains mock academic courses, mock professors, and synthetic feedback for staging and demonstration. **DO NOT run `npm run db:seed` in a production database.**
+* **Production Policy**: `db:seed` is the additive local demo catalog loader; it does not delete or rewrite feedback, professors, courses, or existing offerings. `db:demo-reset` is destructive and refuses to run without explicit development/test mode, a matching `DEMO_RESET_DATABASE`, and `ALLOW_DESTRUCTIVE_DEMO_RESET=YES`. Never configure a production database as the reset target.
 * **Initial Production Provisioning**: In production, initialize real professor records using hashed credentials via an administrative CLI script or controlled institutional provisioning.
+* **Provisioning Secret**: `db:provision` requires an explicitly configured unique `PROF_PASSWORD` of at least 20 characters before connecting to PostgreSQL. Deliver initial credentials through an approved secure channel and require the account owner to rotate them at first login; the application does not currently force password rotation in-product.
 
 ---
 
@@ -187,9 +188,10 @@ Both services handle `SIGTERM` and `SIGINT` signals for zero-downtime rolling re
 
 ## 9. Known Operational Limitations
 
-1. **In-Memory Rate Limiting**: The current rate limiter tracks IP request counters in process memory. In a clustered/multi-replica deployment, rate limits are enforced per replica rather than globally across all instances.
-2. **Asynchronous NLP Queue**: Express uses `setImmediate` for async inference dispatch. If the backend process crashes while a submission is in-flight, the record remains in PostgreSQL with `analysis_status = 'pending'` or `'failed'`. The recovery sweeper (`processPendingBatch`) must be triggered periodically (e.g. via cron or scheduled task) to re-analyze pending items.
-3. **No Dynamic Model Retraining**: Models are static artifacts loaded at startup. Model updates require artifact deployment and process restart.
+1. **In-Memory Rate Limiting**: The current rate limiter tracks IP request counters in process memory. In a clustered/multi-replica deployment, apply shared limits at the trusted API gateway/load balancer; the application limiter is per replica and is not a one-student-one-vote control.
+2. **Trusted Proxy Configuration**: `TRUST_PROXY_HOPS` defaults to `0`. Set it to the exact number of trusted proxy hops in front of Express (from `1` to `5`) only when the infrastructure strips/replaces inbound forwarding headers. Incorrect trust settings allow IP spoofing or group many students under a proxy IP. Account for shared campus NAT addresses when configuring gateway limits.
+3. **Asynchronous NLP Queue**: Express uses `setImmediate` for async inference dispatch. If the backend process crashes while a submission is in-flight, the record remains in PostgreSQL with `analysis_status = 'pending'` or `'failed'`. The recovery worker retries failed analyses with backoff and stops after eight failed attempts; dashboard metrics report pending, retrying, and exhausted failures separately.
+4. **No Dynamic Model Retraining**: Models are static artifacts loaded at startup. Model updates require artifact deployment and process restart.
 
 ---
 

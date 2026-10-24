@@ -39,10 +39,11 @@ async function authenticateProfessor(email, password) {
   }
 
   // Construct signed JWT payload conforming to docs/API_CONTRACT.md:
-  // payload: { professorId: uuid, email: string }
+  // payload: { professorId: uuid, email: string, role: 'faculty' }
   const tokenPayload = {
     professorId: professor.id,
     email: professor.email,
+    role: 'faculty',
   };
 
   const token = jwt.sign(tokenPayload, env.JWT_SECRET, {

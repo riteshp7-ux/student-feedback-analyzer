@@ -31,7 +31,7 @@ async function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET);
-    if (!decoded.professorId) {
+    if (!decoded.professorId || decoded.role === 'student') {
       return res.status(401).json({
         error: {
           code: 'INVALID_TOKEN',

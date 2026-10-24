@@ -52,7 +52,7 @@ test.before(async () => {
     SELECT o.id, c.code, o.professor_id
     FROM course_offerings o
     JOIN courses c ON c.id = o.course_id
-    WHERE o.term = 'Fall 2026';
+    WHERE o.term = 'Semester 1 2026-27';
   `);
 
   cs301OfferingId = offerings.find(o => o.code === 'CS301').id;
@@ -206,7 +206,7 @@ test('GET /api/v1/professor/offerings - Success: returns only offerings assigned
 
   assert.equal(res.status, 200);
   assert.ok(Array.isArray(res.body));
-  // Sharma has CS301 (Fall 2026), CS301 (Spring 2026), and CS405 (Fall 2026)
+  // Sharma has CS301 (Semester 1 2026-27), CS301 (Semester 2 2025-26), and CS405 (Semester 1 2026-27)
   assert.ok(res.body.length >= 2);
   for (const off of res.body) {
     // Should NOT include Desai's CS201
@@ -273,8 +273,8 @@ test('GET /api/v1/feedback/:id - Forbidden: Professor Desai CANNOT access Sharma
 // 5. Student Anonymity Preservation
 // -----------------------------------------------------------------------------
 
-test('Public / Student Flow: POST /feedback remains public, anonymous, and functional without auth', async () => {
-  const res = await request(app, {
+test('Student Submission Flow: POST /feedback requires student auth and rejects unauthenticated request', async () => {
+  const unauthRes = await request(app, {
     method: 'POST',
     path: '/api/v1/feedback',
     body: {
@@ -286,13 +286,42 @@ test('Public / Student Flow: POST /feedback remains public, anonymous, and funct
         engagement: 4,
         practicalExamples: 4,
       },
-      comment: 'Anonymous submission without professor auth tokens works perfectly.',
+      comment: 'Unauthenticated submission should be rejected.',
     },
   });
 
-  assert.equal(res.status, 201);
-  assert.equal(res.body.success, true);
-  assert.equal(res.body.message, 'Feedback submitted successfully.');
+  assert.equal(unauthRes.status, 401);
+  assert.equal(unauthRes.body.error.code, 'UNAUTHORIZED');
+
+  // Verify that student B (enrolled in CS301, not yet submitted) succeeds with valid student token
+  const { rows: studentBRows } = await query("SELECT id, email FROM students WHERE email = 'diya@student.university.edu'");
+  const studentB = studentBRows[0];
+  const studentBToken = jwt.sign(
+    { studentId: studentB.id, email: studentB.email, role: 'student' },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  const authRes = await request(app, {
+    method: 'POST',
+    path: '/api/v1/feedback',
+    headers: { Authorization: `Bearer ${studentBToken}` },
+    body: {
+      courseOfferingId: cs301OfferingId,
+      ratings: {
+        teachingClarity: 4,
+        teachingPace: 4,
+        doubtHandling: 4,
+        engagement: 4,
+        practicalExamples: 4,
+      },
+      comment: 'Authenticated student submission works and persists anonymously.',
+    },
+  });
+
+  assert.equal(authRes.status, 201);
+  assert.equal(authRes.body.success, true);
+  assert.equal(authRes.body.message, 'Feedback submitted successfully.');
 });
 
 test('Public / Student Flow: GET /course-offerings remains publicly accessible', async () => {

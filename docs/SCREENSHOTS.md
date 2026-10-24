@@ -22,7 +22,7 @@ A standardized checklist of key visual states and interfaces to capture for acad
 * **URL**: `http://localhost:5173/`
 * **Elements to Capture**:
   * Dropdown expanded showing available active course offerings (`CS301`, `CS201`, `CS405`).
-  * Selected course metadata badge showing Course Code (`CS301`), Title (`Database Management Systems`), Instructor (`Dr. Ramesh Sharma`), and Term (`Fall 2026`).
+  * Selected course metadata badge showing Course Code (`CS301`), Title (`Database Management Systems`), Instructor (`Dr. Ramesh Sharma`), and Term (`Semester 1 2026-27`).
 * **Suggested Filename**: `02_course_selection_badge.png`
 
 ### 3. Structured Rating Scale & Comment Field

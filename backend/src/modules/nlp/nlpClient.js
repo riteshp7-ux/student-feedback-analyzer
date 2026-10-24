@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const env = require('../../config/env');
+const { APPROVED_TOPICS } = require('../topics');
 
 class NlpClientError extends Error {
   constructor(code, message, details = {}) {
@@ -34,16 +35,6 @@ class NlpInferenceError extends NlpClientError {
   }
 }
 
-const approvedTopics = [
-  'teaching_clarity',
-  'teaching_pace',
-  'practical_examples',
-  'doubt_handling',
-  'engagement',
-  'assignments',
-  'course_content',
-];
-
 const nlpResponseSchema = z.object({
   sentiment: z.object({
     label: z.enum(['positive', 'neutral', 'negative']),
@@ -52,7 +43,7 @@ const nlpResponseSchema = z.object({
   }),
   topics: z.array(
     z.object({
-      label: z.enum(approvedTopics),
+      label: z.enum(APPROVED_TOPICS),
       confidence: z.number().min(0).max(1),
     })
   ),
@@ -75,15 +66,26 @@ async function analyzeFeedback(text, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (env.NLP_SERVICE_TOKEN) {
+    headers['X-NLP-Token'] = env.NLP_SERVICE_TOKEN;
+  }
+
   try {
     const response = await fetch(`${baseUrl}/analyze`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ text }),
       signal: controller.signal,
     });
+
+    if (response.status === 401) {
+      throw new NlpUnavailableError(
+        'NLP service rejected the service token (HTTP 401). Check NLP_SERVICE_TOKEN matches on both services.'
+      );
+    }
 
     if (response.status === 503) {
       throw new NlpUnavailableError('NLP inference service is temporarily unavailable (HTTP 503).');
@@ -130,7 +132,7 @@ async function analyzeFeedback(text, options = {}) {
 module.exports = {
   analyzeFeedback,
   nlpResponseSchema,
-  approvedTopics,
+  approvedTopics: APPROVED_TOPICS,
   NlpClientError,
   NlpUnavailableError,
   NlpTimeoutError,

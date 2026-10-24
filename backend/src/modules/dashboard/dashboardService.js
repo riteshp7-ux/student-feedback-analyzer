@@ -3,16 +3,7 @@ const {
   getOfferingMetrics,
   getOfferingTopicSummary,
 } = require('./dashboardRepository');
-
-const TOPIC_LABELS = {
-  teaching_clarity: 'Teaching Clarity',
-  teaching_pace: 'Teaching Pace',
-  practical_examples: 'Practical Examples',
-  doubt_handling: 'Doubt Handling',
-  engagement: 'Student Engagement',
-  assignments: 'Assignments & Grading',
-  course_content: 'Course Content & Curriculum',
-};
+const { TOPIC_LABELS } = require('../topics');
 
 function getDimensionStatus(score) {
   if (score === null || score === undefined) return 'neutral';
@@ -49,21 +40,41 @@ async function getDashboardData(offeringId) {
   // 2. Fetch raw aggregates
   const { performance, sentiment } = await getOfferingMetrics(offeringId);
   const totalResponses = performance.responseCount;
+  const commentInsightsAvailable = sentiment.analyzedCommentCount >= 5;
+  const analysisLifecycleAvailable = totalResponses >= 5 && performance.commentSubmissionCount >= 5;
+  const analysisLifecycle = analysisLifecycleAvailable ? {
+    pending: performance.pendingCommentCount || 0,
+    retrying: performance.retryingCommentCount || 0,
+    failed: performance.failedCommentCount || 0,
+    analyzed: sentiment.analyzedCommentCount || 0,
+  } : null;
 
   // 3. Evaluate Privacy Threshold (N >= 5)
   if (totalResponses < 5) {
     return {
       courseOffering: {
         id: courseOffering.id,
+        courseId: courseOffering.courseId,
         courseCode: courseOffering.courseCode,
         courseTitle: courseOffering.courseTitle,
+        academicTermId: courseOffering.academicTermId,
         term: courseOffering.term,
+        studyYear: courseOffering.studyYear,
+        departmentId: courseOffering.departmentId,
+        departmentCode: courseOffering.departmentCode,
+        departmentName: courseOffering.departmentName,
+        professorId: courseOffering.professorId,
+        professorName: courseOffering.professorName,
+        section: courseOffering.section,
       },
       privacyThresholdMet: false,
+      commentInsightsAvailable: false,
+      commentInsightsMessage: 'Comment themes and sentiment appear after at least 5 comments are analyzed.',
       overall: {
         responseCount: totalResponses,
         averageRating: null,
         sentimentDistribution: null,
+        analysisLifecycle: null,
       },
       performance: [],
       topics: [],
@@ -106,7 +117,9 @@ async function getDashboardData(offeringId) {
   ];
 
   // 5. Transform Level 3 Topics
-  const rawTopics = await getOfferingTopicSummary(offeringId);
+  const rawTopics = commentInsightsAvailable
+    ? await getOfferingTopicSummary(offeringId)
+    : [];
   const topics = rawTopics.map((t) => ({
     topicKey: t.topicKey,
     label: TOPIC_LABELS[t.topicKey] || t.topicKey,
@@ -126,19 +139,33 @@ async function getDashboardData(offeringId) {
   return {
     courseOffering: {
       id: courseOffering.id,
+      courseId: courseOffering.courseId,
       courseCode: courseOffering.courseCode,
       courseTitle: courseOffering.courseTitle,
+      academicTermId: courseOffering.academicTermId,
       term: courseOffering.term,
+      studyYear: courseOffering.studyYear,
+      departmentId: courseOffering.departmentId,
+      departmentCode: courseOffering.departmentCode,
+      departmentName: courseOffering.departmentName,
+      professorId: courseOffering.professorId,
+      professorName: courseOffering.professorName,
+      section: courseOffering.section,
     },
     privacyThresholdMet: true,
+    commentInsightsAvailable,
+    commentInsightsMessage: commentInsightsAvailable
+      ? null
+      : 'Comment themes and sentiment appear after at least 5 comments are analyzed.',
     overall: {
       responseCount: totalResponses,
       averageRating: performance.overallAverage,
-      sentimentDistribution: {
+      analysisLifecycle,
+      sentimentDistribution: commentInsightsAvailable ? {
         positive: sentiment.positive,
         neutral: sentiment.neutral,
         negative: sentiment.negative,
-      },
+      } : null,
     },
     performance: structuredPerformance,
     topics,

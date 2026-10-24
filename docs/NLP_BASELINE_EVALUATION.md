@@ -71,6 +71,8 @@ Implemented in [`nlp/src/preprocessing.py`](file:///c:/Users/rites/OneDrive/Desk
 
 ## 5. Quantitative Evaluation Results (Test Set, $N = 16$)
 
+> **Methodological caveat (read before citing these numbers).** All three splits (train/val/test) are drawn from the same hand-curated synthetic corpus in `nlp/src/generate_dataset.py`, written by the project authors. These metrics therefore measure *in-domain* performance against the authors' own phrasing distribution. They do **not** estimate accuracy on real student feedback, and no drift monitoring or real-world labeled evaluation set exists yet. Treat the figures below as a pipeline sanity check, not a validated quality claim.
+
 Evaluated using [`nlp/src/evaluate.py`](file:///c:/Users/rites/OneDrive/Desktop/projects/NLP-sys-minor/nlp/src/evaluate.py) on the held-out test split.
 
 ### 5.1 Sentiment Classification Performance

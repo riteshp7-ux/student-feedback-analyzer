@@ -109,13 +109,13 @@ test('Query Verification 1: Course offering feedback and response counts', async
     FROM course_offerings o
     JOIN courses c ON c.id = o.course_id
     LEFT JOIN feedback_submissions s ON s.offering_id = o.id
-    WHERE c.code = 'CS301' AND o.term = 'Fall 2026'
+    WHERE c.code = 'CS301' AND o.term = 'Semester 1 2026-27'
     GROUP BY o.id, c.code, c.title, o.term
   `);
 
   assert.equal(offeringRows.length, 1);
   assert.equal(offeringRows[0].code, 'CS301');
-  assert.equal(offeringRows[0].term, 'Fall 2026');
+  assert.equal(offeringRows[0].term, 'Semester 1 2026-27');
   // Initial seed has 12 submissions (1 was deleted in cascade test above, so 11 remain)
   assert.ok(offeringRows[0].total_responses >= 11);
 });
@@ -132,7 +132,7 @@ test('Query Verification 2: Structured dimensional average ratings (Level 2)', a
     FROM feedback_submissions s
     JOIN course_offerings o ON o.id = s.offering_id
     JOIN courses c ON c.id = o.course_id
-    WHERE c.code = 'CS301' AND o.term = 'Fall 2026'
+    WHERE c.code = 'CS301' AND o.term = 'Semester 1 2026-27'
   `);
 
   assert.equal(rows.length, 1);
@@ -150,7 +150,7 @@ test('Query Verification 3: Sentiment distribution breakdown (Level 1)', async (
     JOIN feedback_submissions s ON s.id = sent.submission_id
     JOIN course_offerings o ON o.id = s.offering_id
     JOIN courses c ON c.id = o.course_id
-    WHERE c.code = 'CS301' AND o.term = 'Fall 2026'
+    WHERE c.code = 'CS301' AND o.term = 'Semester 1 2026-27'
   `);
 
   assert.equal(rows.length, 1);
@@ -170,7 +170,7 @@ test('Query Verification 4: Topic frequency and topic sentiment breakdown (Level
     LEFT JOIN feedback_sentiment sent ON sent.submission_id = s.id
     JOIN course_offerings o ON o.id = s.offering_id
     JOIN courses c ON c.id = o.course_id
-    WHERE c.code = 'CS301' AND o.term = 'Fall 2026'
+    WHERE c.code = 'CS301' AND o.term = 'Semester 1 2026-27'
     GROUP BY t.topic_key
     ORDER BY mention_count DESC
   `);
@@ -195,7 +195,7 @@ test('Query Verification 5: Representative evidence comment retrieval (Level 4)'
     JOIN courses c ON c.id = o.course_id
     LEFT JOIN feedback_sentiment sent ON sent.submission_id = s.id
     LEFT JOIN feedback_topic_mention t ON t.submission_id = s.id
-    WHERE c.code = 'CS301' AND o.term = 'Fall 2026' AND s.comment_text IS NOT NULL
+    WHERE c.code = 'CS301' AND o.term = 'Semester 1 2026-27' AND s.comment_text IS NOT NULL
     GROUP BY s.id, s.comment_text, sent.label, s.created_at
     ORDER BY s.created_at DESC
     LIMIT 5

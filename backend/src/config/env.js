@@ -12,6 +12,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16).default('development_jwt_secret_must_be_long_enough_123'),
   NLP_SERVICE_URL: z.string().url().default('http://127.0.0.1:8000'),
   NLP_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
+  // Optional shared secret sent as X-NLP-Token; when set, the NLP service rejects
+  // unauthenticated /analyze calls. Empty string disables the check (local dev).
+  NLP_SERVICE_TOKEN: z.string().default(''),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
 }).superRefine((data, ctx) => {
   if (data.NODE_ENV === 'production') {
@@ -49,7 +52,24 @@ const envSchema = z.object({
   }
 });
 
-const parsed = envSchema.safeParse(process.env);
+// Platforms and shells sometimes export numeric settings as empty strings or
+// "0" (e.g. PORT= in an inherited environment). zod's coerce would turn those
+// into 0 and fail validation at boot, crash-looping the service. Normalize
+// blank/zero numerics to undefined so the schema defaults apply instead.
+function normalizeNumericEnv(value) {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  if (trimmed === '' || trimmed === '0') return undefined;
+  return trimmed;
+}
+
+const rawEnv = {
+  ...process.env,
+  PORT: normalizeNumericEnv(process.env.PORT),
+  NLP_TIMEOUT_MS: normalizeNumericEnv(process.env.NLP_TIMEOUT_MS),
+};
+
+const parsed = envSchema.safeParse(rawEnv);
 
 if (!parsed.success) {
   console.error('[CONFIG ERROR] Invalid environment configuration:');

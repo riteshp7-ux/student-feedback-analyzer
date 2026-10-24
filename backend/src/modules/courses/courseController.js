@@ -1,4 +1,5 @@
 const { getActiveCourseOfferings, getOfferingsByProfessorId } = require('./courseRepository');
+const { validateCatalogOfferings } = require('./catalogContract');
 
 /**
  * Public endpoint: GET /api/v1/course-offerings
@@ -6,6 +7,12 @@ const { getActiveCourseOfferings, getOfferingsByProfessorId } = require('./cours
 async function handleGetCourseOfferings(req, res, next) {
   try {
     const offerings = await getActiveCourseOfferings();
+    if (!validateCatalogOfferings(offerings)) {
+      const error = new Error('The course catalog contains incomplete offering data.');
+      error.code = 'CATALOG_CONTRACT_INVALID';
+      error.status = 503;
+      throw error;
+    }
     return res.status(200).json(offerings);
   } catch (err) {
     next(err);

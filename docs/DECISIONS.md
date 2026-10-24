@@ -5,10 +5,10 @@
 - **Context**: The application requires high-performance transaction processing for student feedback persistence, along with statistical NLP for comment categorization.
 - **Decision**: Express.js with PostgreSQL handles transactions, schema migrations, and secure API routing. Python handles NLP modeling. The two systems interact via clean REST API boundaries.
 
-## ADR-002: Zero Student Identity Retention in Database
+## ADR-002: No Direct Student Identity in Feedback Records
 - **Status**: Approved & Implemented
 - **Context**: Student feedback must be authentically anonymous to encourage honest reporting.
-- **Decision**: No `student_id`, IP address, user-agent, or browser fingerprint is stored in the `feedback` table. Requests containing unexpected identity headers or body fields are rejected (HTTP 422).
+- **Decision**: No `student_id`, IP address, user-agent, browser fingerprint, or eligibility token is stored in a feedback record. Requests containing unexpected identity headers or body fields are rejected (HTTP 422). A separate restricted eligibility table holds an offering-scoped HMAC roster pseudonym and token-use timestamp, without a feedback submission foreign key. This is anonymity from professors, not from privileged operators who may have roster and pepper access.
 
 ## ADR-003: Pure-Python Classical NLP Pipeline (Zero C-Extension Dependency)
 - **Status**: Approved & Implemented (Stage 14)
@@ -42,12 +42,12 @@
 
 ## ADR-009: Professor Authentication & Course Offering Authorization Boundary
 - **Status**: Approved & Implemented (Stage 18)
-- **Context**: Faculty members need access to analytical dashboards and student comments for their assigned courses, while student submission must remain authentic, decoupled, and anonymous.
-- **Decision**: Authenticate professors using email and bcrypt-hashed passwords (`POST /api/v1/auth/login`), issuing signed 24-hour JWT tokens (`Authorization: Bearer <token>`) with payload `{ professorId: uuid, email: string }`. Protect analytical endpoints (`GET /api/v1/dashboard/:id`, `GET /api/v1/feedback/:id`, `GET /api/v1/professor/offerings`) with server-side middleware (`authenticateToken` and `requireOfferingOwnership`). Authorization is strictly enforced by querying PostgreSQL to guarantee `course_offerings.professor_id == token.professorId`; cross-professor access is rejected with HTTP 403 Forbidden. Student submission (`POST /api/v1/feedback`) and public course listings (`GET /api/v1/course-offerings`) remain completely unauthenticated and anonymous.
+- **Context**: Faculty members need access to analytical dashboards and student comments for their assigned courses, while student submission must remain decoupled and anonymous to professors.
+- **Decision**: Authenticate professors using email and bcrypt-hashed passwords (`POST /api/v1/auth/login`), issuing signed 24-hour JWT tokens (`Authorization: Bearer <token>`) with payload `{ professorId: uuid, email: string }`. Protect analytical endpoints (`GET /api/v1/dashboard/:id`, `GET /api/v1/feedback/:id`, `GET /api/v1/professor/offerings`) with server-side middleware (`authenticateToken` and `requireOfferingOwnership`). Authorization is strictly enforced by querying PostgreSQL to guarantee `course_offerings.professor_id == token.professorId`; cross-professor access is rejected with HTTP 403 Forbidden. Student submission (`POST /api/v1/feedback`) is public without account login but requires the one-time eligibility token in ADR-012; professors cannot inspect eligibility records.
 
 ## ADR-010: Full-System Integration, Aggregation Integrity & Temporal Privacy Verification
 - **Status**: Approved & Implemented (Stage 20)
-- **Context**: Before proceeding to production hardening, the entire connected application topology (Student UI → Express API → PostgreSQL → Python NLP → PostgreSQL → Professor Dashboard) must be verified for architectural consistency, mathematical aggregation accuracy, avoidance of SQL Cartesian explosion, complete student anonymity, and strict cross-professor isolation.
+- **Context**: Before proceeding to production hardening, the entire connected application topology (Student UI → Express API → PostgreSQL → Python NLP → PostgreSQL → Professor Dashboard) must be verified for architectural consistency, mathematical aggregation accuracy, avoidance of SQL Cartesian explosion, anonymity from professors, and strict cross-professor isolation.
 - **Decision**: 
   1. **Decoupled Asynchronous NLP**: Feedback submission persistence (`201 Created`) is never blocked by or coupled to NLP microservice availability. Submissions safely persist with `analysis_status = 'pending'` or `'failed'`, recoverable via background sweeping.
   2. **SQL Join Decoupling**: Dashboard queries calculate response counts, dimensional averages, sentiment distributions, and topic frequencies across distinct queries, preventing row inflation from 1:N `feedback_topic_mention` relations.
@@ -64,6 +64,24 @@
   3. **In-Memory Rate Limiting**: Implemented lightweight, zero-dependency token/window rate limiters with automatic memory eviction for authentication (`POST /api/v1/auth/login`, 10 req/15 min) and feedback submission (`POST /api/v1/feedback`, 30 req/min).
   4. **Strict Request Boundaries**: Express limits JSON request bodies to `100kb` (returning HTTP 413 `PAYLOAD_TOO_LARGE`) and enforces a 2,000 character maximum across frontend, backend, database constraints, and NLP microservice.
   5. **Separate Liveness and Readiness Probes**: Implemented `GET /health/live` (lightweight process liveness) and `GET /health/ready` (PostgreSQL connection pool validation), matching container orchestrator semantics.
+
+## ADR-012: One-Time Registrar Token Per Exact Offering (Deprecated)
+- **Status**: Superseded by ADR-013
+- **Context**: The user required at most one feedback response per student for a course while keeping students anonymous to professors.
+- **Decision**: Historically used an out-of-band bearer token system with HMAC roster pseudonyms. Superseded by ADR-013 in favor of authenticated student login, database enrollment verification, and submission control.
+
+## ADR-013: Student Authentication, Course Enrollment Verification, and Level 1 Practical Anonymity
+- **Status**: Approved & Implemented (Migration Complete)
+- **Supersedes**: ADR-012
+- **Context**: The bearer token issuance system introduced administrative friction (distributing individual 32-character tokens out-of-band) while not integrating directly with institutional enrollment records.
+- **Decision**:
+  1. **Application-Managed Student Authentication**: Students authenticate via email and password (`POST /api/v1/auth/student/login`), receiving signed 24-hour JWT tokens (`role: student`).
+  2. **Course Enrollment Verification**: `POST /api/v1/feedback` verifies that the student is actively enrolled in the requested course offering in `course_enrollments` (HTTP 403 `STUDENT_NOT_ENROLLED`).
+  3. **One-Submission-Per-Offering Enforcement**: Enforced atomically via unique constraint `UNIQUE(student_id, course_offering_id)` in `feedback_submission_control` (HTTP 409 `ALREADY_SUBMITTED`). Feedback cannot be edited or resubmitted.
+  4. **Anonymous Feedback Persistence**: `feedback_submissions` stores ratings and comments with zero student identifier (`student_id`, email, name, or account link). Neither table references the other's primary key.
+  5. **Level 1 Practical Anonymity**: Course instructors and normal application APIs cannot view student identity. Privileged database/application administrators with access to low-level transaction logs could theoretically correlate activity timestamps; cryptographic unlinkability is not claimed.
+  6. **Complete Retirement of Legacy Token System**: Dropped `feedback_eligibility_tokens` table via migration 009, removed `FEEDBACK_ELIGIBILITY_PEPPER`, removed legacy CLI scripts and repositories, and updated the student frontend to reflect enrolled courses and clear submission status.
+
 
 
 

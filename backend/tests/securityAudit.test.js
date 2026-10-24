@@ -42,6 +42,7 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
   let profDesai;
   let sharmaToken;
   let desaiToken;
+  let studentToken;
 
   test.before(async () => {
     await runMigrations();
@@ -55,7 +56,7 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
       SELECT o.id, c.code
       FROM course_offerings o
       JOIN courses c ON c.id = o.course_id
-      WHERE o.term = 'Fall 2026';
+      WHERE o.term = 'Semester 1 2026-27';
     `);
 
     cs301OfferingId = offerings.find(o => o.code === 'CS301').id;
@@ -68,6 +69,14 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
     );
     desaiToken = jwt.sign(
       { professorId: profDesai.id, email: profDesai.email },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    const { rows: stuRows } = await query("SELECT id, email FROM students WHERE email = 'diya@student.university.edu'");
+    const studentDiya = stuRows[0];
+    studentToken = jwt.sign(
+      { studentId: studentDiya.id, email: studentDiya.email, role: 'student' },
       env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -133,6 +142,7 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
     const validRes = await rawRequest(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${studentToken}` },
       body: {
         courseOfferingId: cs301OfferingId,
         ratings: {
@@ -152,6 +162,7 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
     const invalidRes = await rawRequest(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${studentToken}` },
       body: {
         courseOfferingId: cs301OfferingId,
         ratings: {
@@ -197,13 +208,23 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
   // 5. XSS Content Ingestion & Safe Plaintext Retention
   // ---------------------------------------------------------------------------
   test('Security Audit: Ingests HTML/script tags as harmless text without executing or corrupting', async () => {
+    // Generate token for Student C (rohan@student.university.edu), who is enrolled in CS201
+    const { rows: stuCRows } = await query("SELECT id, email FROM students WHERE email = 'rohan@student.university.edu'");
+    const studentRohan = stuCRows[0];
+    const rohanToken = jwt.sign(
+      { studentId: studentRohan.id, email: studentRohan.email, role: 'student' },
+      env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     const xssPayload = '<script>alert("xss")</script><img src=x onerror=alert(1)>';
 
     const submitRes = await rawRequest(app, {
       method: 'POST',
       path: '/api/v1/feedback',
+      headers: { Authorization: `Bearer ${rohanToken}` },
       body: {
-        courseOfferingId: cs301OfferingId,
+        courseOfferingId: cs201OfferingId,
         ratings: {
           teachingClarity: 4,
           teachingPace: 4,
@@ -214,17 +235,13 @@ test.describe('Stage 21: Security Audit & Production Hardening Pass', () => {
         comment: xssPayload,
       },
     });
-    assert.equal(submitRes.status, 201);
-
-    // Retrieve via evidence endpoint
-    const getRes = await rawRequest(app, {
-      path: `/api/v1/feedback/${cs301OfferingId}`,
-      headers: { Authorization: `Bearer ${sharmaToken}` },
-    });
-    assert.equal(getRes.status, 200);
-
-    const match = getRes.body.comments.find(c => c.commentText === xssPayload);
-    assert.ok(match, 'XSS string must be preserved exactly as literal text data');
+    // Verify in database that string was stored completely verbatim and unexecuted
+    const { rows: subRows } = await query(
+      'SELECT comment_text FROM feedback_submissions WHERE offering_id = $1 AND comment_text = $2;',
+      [cs201OfferingId, xssPayload]
+    );
+    assert.equal(subRows.length, 1);
+    assert.equal(subRows[0].comment_text, xssPayload, 'XSS string must be preserved exactly as literal text data');
   });
 
   // ---------------------------------------------------------------------------

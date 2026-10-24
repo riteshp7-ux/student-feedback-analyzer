@@ -8,52 +8,45 @@ export default function CourseSelector({
   error = null,
   onRetry,
 }) {
-  const selectedOffering = offerings.find((o) => o.id === selectedId);
+  const selectedOffering = offerings.find((offering) => offering.id === selectedId);
 
   return (
     <div className="course-selector-group">
       <label htmlFor="course-select" className="field-label">
-        Course Offering <span className="required-indicator" aria-hidden="true">*</span>
+        Course <span className="required-indicator" aria-hidden="true">*</span>
       </label>
       <p className="field-helper" id="course-select-helper">
-        Select the course and instructor section you are evaluating.
+        Choose one of the courses assigned to you.
       </p>
 
       {isLoading ? (
         <div className="selector-loading" role="status" aria-live="polite">
           <span className="spinner" aria-hidden="true"></span>
-          <span>Loading available courses...</span>
+          <span>Loading your courses...</span>
         </div>
       ) : error ? (
         <div className="selector-error" role="alert">
-          <p className="error-text">Unable to load courses: {error}</p>
-          {onRetry && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onRetry}
-            >
-              Retry
-            </button>
-          )}
+          <p className="error-text">Unable to load your courses: {error}</p>
+          {onRetry && <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry}>Retry</button>}
         </div>
       ) : offerings.length === 0 ? (
         <div className="selector-empty" role="status">
-          <p>No active course offerings are currently open for evaluation.</p>
+          <p>No courses are currently assigned to your account for feedback.</p>
         </div>
       ) : (
         <select
           id="course-select"
           className="select-input"
           value={selectedId}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           aria-describedby="course-select-helper"
           aria-required="true"
         >
-          <option value="">-- Choose a course offering --</option>
-          {offerings.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.courseCode}: {c.courseTitle} — {c.instructorName || c.professorName} ({c.term})
+          <option value="">Choose a course</option>
+          {offerings.map((offering) => (
+            <option key={offering.id} value={offering.id}>
+              {offering.courseCode}: {offering.courseTitle}
+              {offering.hasSubmitted ? ' · Feedback submitted' : ''}
             </option>
           ))}
         </select>
@@ -66,8 +59,11 @@ export default function CourseSelector({
             <span className="course-title-text">{selectedOffering.courseTitle}</span>
           </div>
           <div className="badge-meta">
-            <span><strong>Instructor:</strong> {selectedOffering.instructorName || selectedOffering.professorName}</span>
-            <span><strong>Term:</strong> {selectedOffering.term}</span>
+            <span><strong>Professor:</strong> {selectedOffering.instructorName || selectedOffering.professorName}</span>
+            {selectedOffering.departmentName && (
+              <span><strong>Department:</strong> {selectedOffering.departmentName}</span>
+            )}
+            {selectedOffering.hasSubmitted && <span><strong>Status:</strong> Feedback submitted</span>}
           </div>
         </div>
       )}

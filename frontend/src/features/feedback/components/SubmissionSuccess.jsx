@@ -3,8 +3,11 @@ import React from 'react';
 export default function SubmissionSuccess({
   feedbackId,
   courseOffering,
+  commentPending = false,
   onReset,
 }) {
+  const hasValidFeedbackId = feedbackId && feedbackId !== 'SUBMISSION_RECORDED';
+
   return (
     <div className="submission-success-card" role="status" aria-live="polite">
       <div className="success-icon-wrapper" aria-hidden="true">
@@ -16,7 +19,7 @@ export default function SubmissionSuccess({
       <h2 className="success-title">Feedback Submitted Successfully</h2>
       
       <p className="success-message">
-        Thank you for submitting your evaluation. Your ratings and comments have been recorded anonymously and will help improve future course instruction.
+        Your feedback has been successfully received. The evaluation is final and cannot be edited or resubmitted. Professors view evaluations without your student identity.
       </p>
 
       {courseOffering && (
@@ -25,13 +28,6 @@ export default function SubmissionSuccess({
           <span className="summary-value">
             {courseOffering.courseCode}: {courseOffering.courseTitle} ({courseOffering.professorName})
           </span>
-        </div>
-      )}
-
-      {feedbackId && (
-        <div className="submission-receipt">
-          <span className="receipt-label">Submission ID:</span>
-          <code className="receipt-code mono">{feedbackId}</code>
         </div>
       )}
 

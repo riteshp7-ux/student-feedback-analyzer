@@ -17,5 +17,8 @@ class Settings(BaseModel):
         "NLP_ARTIFACT_DIR",
         str(BASE_DIR / "artifacts" / "v1.0.0")
     )
+    # Optional shared secret: when set, /analyze requests must carry a matching
+    # X-NLP-Token header (the API sends it). Empty string disables the check.
+    auth_token: str = os.getenv("NLP_SERVICE_TOKEN", "")
 
 settings = Settings()
